@@ -1,6 +1,6 @@
-# driftdb
+# schema-diff 
 
-**`driftdb`** is a GitHub Action (and CLI) that detects database schema changes across any migration tool, spins up a local database, and produces a **comprehensive, human-readable diff report** — powered by [DBML](https://dbml.org/).
+**`schema-diff `** is a GitHub Action (and CLI) that detects database schema changes across any migration tool, spins up a local database, and produces a **comprehensive, human-readable diff report**.
 
 > 🔍 Stop guessing what your migration does. See exactly what changed, in every PR.
 
@@ -39,7 +39,7 @@ Migration Files
   Diff Report           → PR Comment / CI Artifact / CLI Output
 ```
 
-1. **Launch** — driftdb starts a temporary local database using Docker
+1. **Launch** — schema-diff  starts a temporary local database using Docker
 2. **Migrate** — runs your migration command (you provide it)
 3. **Dump** — exports the resulting schema as SQL and DBML
 4. **Diff** — compares DBML snapshots between the current branch and the baseline (e.g., `main`)
@@ -66,8 +66,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run driftdb
-        uses: your-org/driftdb@v1
+      - name: Run schema-diff 
+        uses: your-org/schema-diff @v1
         with:
           db-engine: postgres
           db-version: "15"
@@ -81,10 +81,10 @@ jobs:
 
 ```bash
 # Install
-npm install -g driftdb
+npm install -g schema-diff 
 
 # Run against your local migration setup
-driftdb diff \
+schema-diff  diff \
   --db-engine postgres \
   --migrate-command "flyway migrate" \
   --migrations-path ./db/migrations \
@@ -112,7 +112,7 @@ driftdb diff \
 ### CLI Options
 
 ```
-driftdb diff [options]
+schema-diff  diff [options]
 
 Options:
   --db-engine <engine>         postgres | mysql | sqlite
@@ -120,7 +120,7 @@ Options:
   --migrate-command <cmd>      Migration command to run
   --migrations-path <path>     Path to migration files
   --baseline <file>            Baseline DBML file to diff against
-  --output-dir <path>          Directory to write outputs (default: .driftdb)
+  --output-dir <path>          Directory to write outputs (default: .schema-diff )
   --format <format>            Report format: text | markdown | json
   --fail-on-destructive        Exit 1 if destructive changes found
 ```
@@ -129,7 +129,7 @@ Options:
 
 ## 📋 Example Report
 
-When driftdb detects changes, it posts a report like this to your PR:
+When schema-diff  detects changes, it posts a report like this to your PR:
 
 ---
 
@@ -191,7 +191,7 @@ Table payment_methods {
 
 ## 🔌 Migration Tool Compatibility
 
-driftdb does **not** depend on any specific migration tool. You provide the command, driftdb runs it.
+schema-diff  does **not** depend on any specific migration tool. You provide the command, schema-diff  runs it.
 
 | Tool | Example `migrate-command` |
 |------|--------------------------|
@@ -208,10 +208,10 @@ driftdb does **not** depend on any specific migration tool. You provide the comm
 
 ## 📦 Outputs & Artifacts
 
-After each run, driftdb produces:
+After each run, schema-diff  produces:
 
 ```
-.driftdb/
+.schema-diff /
 ├── current.dbml          # DBML schema of current branch
 ├── baseline.dbml         # DBML schema of baseline branch
 ├── diff.md               # Human-readable diff report (Markdown)
@@ -242,8 +242,8 @@ These are automatically uploaded as GitHub Actions artifacts and can also be com
 Contributions are welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
 
 ```bash
-git clone https://github.com/your-org/driftdb
-cd driftdb
+git clone https://github.com/your-org/schema-diff 
+cd schema-diff 
 npm install
 npm test
 ```
