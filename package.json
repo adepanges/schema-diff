@@ -1,0 +1,37 @@
+{
+  "name": "schema-diff",
+  "version": "1.0.0",
+  "description": "Migration-tool agnostic database schema diff — GitHub Action and CLI",
+  "main": "src/main.js",
+  "bin": {
+    "schema-diff": "src/cli.js"
+  },
+  "scripts": {
+    "test": "jest --coverage",
+    "test:unit": "jest tests/unit"
+  },
+  "keywords": [
+    "schema",
+    "diff",
+    "migration",
+    "database",
+    "github-action",
+    "dbml"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@actions/core": "^3.0.0",
+    "@actions/github": "^9.0.0",
+    "@dbml/core": "^3.8.0",
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ]
+  }
+}
