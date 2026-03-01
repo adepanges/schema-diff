@@ -19,6 +19,7 @@
     "dbml"
   ],
   "license": "MIT",
+  "packageManager": "pnpm@10.30.3",
   "dependencies": {
     "@actions/core": "^3.0.0",
     "@actions/github": "^9.0.0",
