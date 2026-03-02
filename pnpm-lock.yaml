@@ -15,11 +15,11 @@ importers:
         specifier: ^9.0.0
         version: 9.0.0
       '@dbml/core':
-        specifier: ^3.8.0
-        version: 3.14.1
+        specifier: ^6.4.0
+        version: 6.4.0
       commander:
-        specifier: ^12.1.0
-        version: 12.1.0
+        specifier: ^14.0.3
+        version: 14.0.3
     devDependencies:
       jest:
         specifier: ^30.2.0
@@ -210,12 +210,12 @@ packages:
   '@bcoe/v8-coverage@0.2.3':
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
 
-  '@dbml/core@3.14.1':
-    resolution: {integrity: sha512-X7qQo+ILK8NZ7S6LGmAExm28kX+YkfhDIiO4kZE/4Gm5pwzBOCZM4XVYWCRO1PACTLvvvAjNNMsZjJ2DhlYWxg==}
+  '@dbml/core@6.4.0':
+    resolution: {integrity: sha512-mmWOQZSo2yaYNsJ9EZo0ZmcjL/Eg2fNJ+DCaL9VUo3bXO4775BxFS5d3pZmgPC3FMFNClHGJi7Qal7YjzW3Bzw==}
     engines: {node: '>=16'}
 
-  '@dbml/parse@3.14.1':
-    resolution: {integrity: sha512-I906RBlLF04IWQlMUw10EIKimafZ4STb86BC8hGnezb+wJqtAtVLAX8hfbzMDnGpjthm4jg0oddxTLFTZrk80g==}
+  '@dbml/parse@6.4.0':
+    resolution: {integrity: sha512-OmIZahT0G3vAi912wHcG0IXe/VhaOU0FpNDP4/xBVqwnfD8Mb7WYrSxSfa33HG+kXoO/jSSemHtjQ4SAlFCORg==}
     engines: {node: '>=18'}
 
   '@emnapi/core@1.8.1':
@@ -681,9 +681,9 @@ packages:
   color-name@1.1.4:
     resolution: {integrity: sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==}
 
-  commander@12.1.0:
-    resolution: {integrity: sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA==}
-    engines: {node: '>=18'}
+  commander@14.0.3:
+    resolution: {integrity: sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw==}
+    engines: {node: '>=20'}
 
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
@@ -1066,6 +1066,10 @@ packages:
 
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
+
+  luxon@3.7.2:
+    resolution: {integrity: sha512-vtEhXh/gNjI9Yg1u4jX/0YVPMvxzHuGgCm6tC5kZyb08yjGWGnqAjGJvcXbqQR2P3MyMEFnRbpcdFS6PBcLqew==}
+    engines: {node: '>=12'}
 
   make-dir@4.0.0:
     resolution: {integrity: sha512-hXdUTZYIVOt1Ex//jAQi+wTZZpUpwBj/0QsOzqegb3rGMMeJiSEu5xLHnYfBrRV4RH2+OCSOO95Is/7x1WJ4bw==}
@@ -1614,17 +1618,20 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
-  '@dbml/core@3.14.1':
+  '@dbml/core@6.4.0':
     dependencies:
-      '@dbml/parse': 3.14.1
+      '@dbml/parse': 6.4.0
       antlr4: 4.13.2
       lodash: 4.17.23
+      lodash-es: 4.17.23
+      luxon: 3.7.2
       parsimmon: 1.18.1
       pluralize: 8.0.0
 
-  '@dbml/parse@3.14.1':
+  '@dbml/parse@6.4.0':
     dependencies:
       lodash-es: 4.17.23
+      luxon: 3.7.2
 
   '@emnapi/core@1.8.1':
     dependencies:
@@ -2189,7 +2196,7 @@ snapshots:
 
   color-name@1.1.4: {}
 
-  commander@12.1.0: {}
+  commander@14.0.3: {}
 
   concat-map@0.0.1: {}
 
@@ -2721,6 +2728,8 @@ snapshots:
   lru-cache@5.1.1:
     dependencies:
       yallist: 3.1.1
+
+  luxon@3.7.2: {}
 
   make-dir@4.0.0:
     dependencies:
