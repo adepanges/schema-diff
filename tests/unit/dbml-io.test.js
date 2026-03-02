@@ -1,6 +1,6 @@
 'use strict';
 
-const { sqlToDbml } = require('../../src/schema/dbml-io');
+const { sqlToDbml, dbmlToSchema } = require('../../src/schema/dbml-io');
 
 const PG_DUMP = `
 CREATE TABLE users (
@@ -60,5 +60,106 @@ describe('sqlToDbml', () => {
 
   test('throws for unsupported engine', () => {
     expect(() => sqlToDbml('SELECT 1', 'mssql')).toThrow();
+  });
+});
+
+const SAMPLE_DBML = `
+Table "users" {
+  "id" integer [not null]
+  "email" varchar(255) [not null]
+  "name" text
+  "created_at" timestamp [default: \`now()\`]
+
+  Indexes {
+    id [pk, name: "users_pkey"]
+    email [unique, name: "idx_users_email"]
+  }
+}
+
+Table "posts" {
+  "id" integer [pk, not null]
+  "user_id" integer [not null]
+  "title" varchar(500) [not null]
+
+  Indexes {
+    user_id [name: "idx_posts_user"]
+  }
+}
+
+Ref "posts_user_fk":"posts"."user_id" > "users"."id" [delete: cascade]
+`;
+
+describe('dbmlToSchema', () => {
+  let schema;
+
+  beforeAll(() => {
+    schema = dbmlToSchema(SAMPLE_DBML);
+  });
+
+  test('returns object with tables key', () => {
+    expect(schema).toHaveProperty('tables');
+  });
+
+  test('parses table names', () => {
+    expect(Object.keys(schema.tables)).toEqual(expect.arrayContaining(['users', 'posts']));
+  });
+
+  test('parses columns with correct structure', () => {
+    const col = schema.tables.users.columns.email;
+    expect(col).toEqual({
+      name: 'email',
+      type: 'varchar(255)',
+      nullable: false,
+      default: null,
+      pk: false,
+    });
+  });
+
+  test('parses primary key from index', () => {
+    expect(schema.tables.users.primaryKey).toContain('id');
+    expect(schema.tables.users.columns.id.pk).toBe(true);
+  });
+
+  test('parses primary key from field attribute', () => {
+    expect(schema.tables.posts.primaryKey).toContain('id');
+    expect(schema.tables.posts.columns.id.pk).toBe(true);
+  });
+
+  test('parses nullable correctly', () => {
+    expect(schema.tables.users.columns.name.nullable).toBe(true);
+    expect(schema.tables.users.columns.id.nullable).toBe(false);
+  });
+
+  test('parses default value', () => {
+    expect(schema.tables.users.columns.created_at.default).toBe('now()');
+  });
+
+  test('parses unique index', () => {
+    const idx = schema.tables.users.indexes.find((i) => i.name === 'idx_users_email');
+    expect(idx).toBeDefined();
+    expect(idx.unique).toBe(true);
+    expect(idx.columns).toEqual(['email']);
+  });
+
+  test('parses non-unique index', () => {
+    const idx = schema.tables.posts.indexes.find((i) => i.name === 'idx_posts_user');
+    expect(idx).toBeDefined();
+    expect(idx.unique).toBe(false);
+    expect(idx.columns).toEqual(['user_id']);
+  });
+
+  test('parses foreign key', () => {
+    const fk = schema.tables.posts.foreignKeys[0];
+    expect(fk).toBeDefined();
+    expect(fk.name).toBe('posts_user_fk');
+    expect(fk.columns).toEqual(['user_id']);
+    expect(fk.refTable).toBe('users');
+    expect(fk.refColumns).toEqual(['id']);
+    expect(fk.onDelete).toBe('CASCADE');
+  });
+
+  test('returns empty tables for empty DBML', () => {
+    const s = dbmlToSchema('');
+    expect(s.tables).toEqual({});
   });
 });
