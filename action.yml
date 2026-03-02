@@ -1,0 +1,65 @@
+name: 'schema-diff'
+description: 'Migration-tool agnostic database schema diff — detects schema changes across any migration tool'
+author: 'adepanges'
+
+inputs:
+  db-engine:
+    description: 'Database engine: postgres | mysql'
+    required: true
+  db-version:
+    description: 'Docker image version tag (e.g. "15", "8.0", "latest")'
+    required: false
+    default: 'latest'
+  migrate-command:
+    description: 'Shell command to run your migrations (e.g. "npx db-migrate up" or "flyway migrate")'
+    required: true
+  migrations-path:
+    description: 'Working directory for the migration command (defaults to repository root)'
+    required: false
+    default: '.'
+  baseline-branch:
+    description: 'Branch to compare schema against (informational — used with baseline DBML artifact)'
+    required: false
+    default: 'main'
+  post-pr-comment:
+    description: 'Post the diff report as a PR comment'
+    required: false
+    default: 'true'
+  github-token:
+    description: 'GitHub token for posting PR comments (defaults to GITHUB_TOKEN env var)'
+    required: false
+    default: ''
+  output-dbml:
+    description: 'Write a DBML snapshot to the output directory'
+    required: false
+    default: 'true'
+  output-sql-dump:
+    description: 'Write the full SQL schema dump to the output directory'
+    required: false
+    default: 'false'
+  fail-on-destructive:
+    description: 'Fail the workflow if destructive schema changes are detected'
+    required: false
+    default: 'false'
+
+outputs:
+  diff-report:
+    description: 'The full schema diff report (markdown)'
+  has-destructive:
+    description: '"true" if destructive changes were detected'
+  added-tables:
+    description: 'Comma-separated list of added table names'
+  removed-tables:
+    description: 'Comma-separated list of removed table names'
+  modified-tables:
+    description: 'Comma-separated list of modified table names'
+  output-dir:
+    description: 'Path to the directory containing output files'
+
+runs:
+  using: 'node20'
+  main: 'src/main.js'
+
+branding:
+  icon: 'database'
+  color: 'blue'
