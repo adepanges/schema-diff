@@ -163,3 +163,44 @@ describe('dbmlToSchema', () => {
     expect(s.tables).toEqual({});
   });
 });
+
+const { diffSchemas } = require('../../src/diff/engine');
+
+describe('round-trip: SQL → DBML → schema → diff', () => {
+  test('baseline and current from SQL produce correct diff', () => {
+    const baselineSql = `
+      CREATE TABLE users (
+        id integer NOT NULL,
+        email varchar(255) NOT NULL,
+        CONSTRAINT users_pkey PRIMARY KEY (id)
+      );
+    `;
+    const currentSql = `
+      CREATE TABLE users (
+        id integer NOT NULL,
+        email varchar(255) NOT NULL,
+        phone varchar(20),
+        CONSTRAINT users_pkey PRIMARY KEY (id)
+      );
+      CREATE TABLE orders (
+        id integer NOT NULL,
+        user_id integer NOT NULL,
+        CONSTRAINT orders_pkey PRIMARY KEY (id)
+      );
+      ALTER TABLE ONLY orders ADD CONSTRAINT orders_user_fk FOREIGN KEY (user_id) REFERENCES users(id);
+    `;
+
+    const baselineDbml = sqlToDbml(baselineSql, 'postgres');
+    const currentDbml = sqlToDbml(currentSql, 'postgres');
+
+    const baselineSchema = dbmlToSchema(baselineDbml);
+    const currentSchema = dbmlToSchema(currentDbml);
+
+    const diff = diffSchemas(baselineSchema, currentSchema);
+
+    expect(diff.addedTables).toContain('orders');
+    expect(diff.removedTables).toHaveLength(0);
+    expect(diff.modifiedTables.users).toBeDefined();
+    expect(diff.modifiedTables.users.addedColumns).toContain('phone');
+  });
+});
