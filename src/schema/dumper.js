@@ -17,6 +17,9 @@ function dumpSchema(dbCfg) {
   if (engine === 'mysql') {
     return _dumpMysql(containerId, dbName, user, password);
   }
+  if (engine === 'sqlite') {
+    return _dumpSqlite(dbCfg.dbFile);
+  }
   throw new Error(`Schema dump not supported for engine: ${engine}`);
 }
 
@@ -46,6 +49,14 @@ function _dumpMysql(containerId, dbName, user, password) {
   );
   if (result.status !== 0) {
     throw new Error(`mysqldump failed: ${result.stderr || result.stdout}`);
+  }
+  return result.stdout;
+}
+
+function _dumpSqlite(dbFile) {
+  const result = spawnSync('sqlite3', [dbFile, '.schema'], { encoding: 'utf8', timeout: 30000 });
+  if (result.status !== 0) {
+    throw new Error(`sqlite3 dump failed: ${result.stderr || result.stdout}`);
   }
   return result.stdout;
 }

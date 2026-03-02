@@ -173,3 +173,76 @@ describe('parseSchema — empty SQL', () => {
     expect(schema.tables).toEqual({});
   });
 });
+
+describe('parseSchema — SQLite .schema output', () => {
+  const sqliteDump = `
+    CREATE TABLE users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT NOT NULL,
+      name TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE posts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE UNIQUE INDEX idx_users_email ON users (email);
+    CREATE INDEX idx_posts_user_id ON posts (user_id);
+  `;
+
+  let schema;
+  beforeAll(() => {
+    schema = parseSchema(sqliteDump);
+  });
+
+  test('parses two tables', () => {
+    expect(Object.keys(schema.tables)).toHaveLength(2);
+    expect(schema.tables.users).toBeDefined();
+    expect(schema.tables.posts).toBeDefined();
+  });
+
+  test('parses columns in users', () => {
+    const cols = schema.tables.users.columns;
+    expect(cols.id).toBeDefined();
+    expect(cols.email).toBeDefined();
+    expect(cols.name).toBeDefined();
+    expect(cols.created_at).toBeDefined();
+  });
+
+  test('id column is not nullable (INTEGER PRIMARY KEY)', () => {
+    expect(schema.tables.users.columns.id.pk).toBe(true);
+  });
+
+  test('email column is not nullable', () => {
+    expect(schema.tables.users.columns.email.nullable).toBe(false);
+  });
+
+  test('name column is nullable', () => {
+    expect(schema.tables.users.columns.name.nullable).toBe(true);
+  });
+
+  test('parses FOREIGN KEY in CREATE TABLE body', () => {
+    const fks = schema.tables.posts.foreignKeys;
+    expect(fks).toHaveLength(1);
+    expect(fks[0].refTable).toBe('users');
+    expect(fks[0].columns).toContain('user_id');
+    expect(fks[0].onDelete).toBe('CASCADE');
+  });
+
+  test('parses unique index', () => {
+    const idx = schema.tables.users.indexes.find((i) => i.name === 'idx_users_email');
+    expect(idx).toBeDefined();
+    expect(idx.unique).toBe(true);
+  });
+
+  test('parses non-unique index', () => {
+    const idx = schema.tables.posts.indexes.find((i) => i.name === 'idx_posts_user_id');
+    expect(idx).toBeDefined();
+    expect(idx.unique).toBe(false);
+  });
+});

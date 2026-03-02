@@ -12,7 +12,7 @@ program
 program
   .command('diff')
   .description('Run migrations and produce a schema diff report')
-  .requiredOption('--db-engine <engine>', 'Database engine: postgres | mysql')
+  .requiredOption('--db-engine <engine>', 'Database engine: postgres | mysql | sqlite')
   .option('--db-version <version>', 'Docker image version tag', 'latest')
   .requiredOption('--migrate-command <cmd>', 'Shell command to run your migrations')
   .option('--migrations-path <path>', 'Working directory for the migration command', process.cwd())
