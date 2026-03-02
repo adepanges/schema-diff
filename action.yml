@@ -4,7 +4,7 @@ author: 'adepanges'
 
 inputs:
   db-engine:
-    description: 'Database engine: postgres | mysql'
+    description: 'Database engine: postgres | mysql | sqlite'
     required: true
   db-version:
     description: 'Docker image version tag (e.g. "15", "8.0", "latest")'

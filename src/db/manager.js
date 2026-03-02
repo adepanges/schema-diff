@@ -1,6 +1,9 @@
 'use strict';
 
-const { execSync, spawnSync } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { spawnSync } = require('child_process');
 const crypto = require('crypto');
 
 const DB_DEFAULTS = {
@@ -31,6 +34,10 @@ const DB_DEFAULTS = {
       MYSQL_ROOT_PASSWORD: cfg.password,
     }),
   },
+  sqlite: {
+    dockerless: true,
+    env: () => ({}),
+  },
 };
 
 class DbManager {
@@ -46,16 +53,19 @@ class DbManager {
   }
 
   async start() {
+    if (this.cfg.dockerless) {
+      // SQLite: no Docker container — create a temp directory and DB file path
+      this._tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'schema-diff-sqlite-'));
+      this.dbFile = path.join(this._tmpDir, 'schema_diff.db');
+      return this;
+    }
+
     const image = `${this.cfg.image}:${this.version}`;
     const containerName = `schema-diff-${this.engine}-${crypto.randomBytes(6).toString('hex')}`;
     const envVars = this.cfg.env(this.cfg);
-    const envFlags = Object.entries(envVars)
-      .map(([k, v]) => `-e ${k}=${v}`)
-      .join(' ');
 
     this.hostPort = await this._getFreePort();
 
-    const cmd = `docker run -d --name ${containerName} ${envFlags} -p ${this.hostPort}:${this.cfg.port} ${image}`;
     const result = spawnSync('docker', ['run', '-d',
       '--name', containerName,
       ...Object.entries(envVars).flatMap(([k, v]) => ['-e', `${k}=${v}`]),
@@ -75,6 +85,14 @@ class DbManager {
   }
 
   async stop() {
+    if (this.cfg.dockerless) {
+      if (this._tmpDir) {
+        fs.rmSync(this._tmpDir, { recursive: true, force: true });
+        this._tmpDir = null;
+        this.dbFile = null;
+      }
+      return;
+    }
     if (this.containerId) {
       spawnSync('docker', ['rm', '-f', this.containerId], { encoding: 'utf8' });
       this.containerId = null;
@@ -102,6 +120,12 @@ class DbManager {
         DATABASE_URL: this.getConnectionUrl(),
       };
     }
+    if (this.engine === 'sqlite') {
+      return {
+        SQLITE_FILE: this.dbFile,
+        DATABASE_URL: this.getConnectionUrl(),
+      };
+    }
     return {};
   }
 
@@ -113,10 +137,19 @@ class DbManager {
     if (this.engine === 'mysql') {
       return `mysql://${user}:${password}@127.0.0.1:${this.hostPort}/${dbName}`;
     }
+    if (this.engine === 'sqlite') {
+      return `sqlite:///${this.dbFile}`;
+    }
     return '';
   }
 
   getConfig() {
+    if (this.engine === 'sqlite') {
+      return {
+        engine: this.engine,
+        dbFile: this.dbFile,
+      };
+    }
     return {
       engine: this.engine,
       host: '127.0.0.1',
@@ -128,6 +161,7 @@ class DbManager {
   }
 
   async _waitForReady(maxAttempts = 30, intervalMs = 2000) {
+    if (!this.cfg.readyCmd) return; // SQLite: no container to wait for
     for (let i = 0; i < maxAttempts; i++) {
       const result = spawnSync('docker', ['exec', this.containerId, ...this.cfg.readyCmd], {
         encoding: 'utf8',
