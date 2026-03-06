@@ -1,20 +1,15 @@
-'use strict';
+import { importer, Parser } from '@dbml/core';
+import type { Schema, Column } from '../types';
 
-const { importer, Parser } = require('@dbml/core');
-
-const SUPPORTED_ENGINES = {
+const SUPPORTED_ENGINES: Record<string, string> = {
   postgres: 'postgres',
   mysql: 'mysql',
 };
 
 /**
  * Convert a SQL dump string to a DBML string using @dbml/core.
- *
- * @param {string} sql     SQL DDL string (from pg_dump, mysqldump, etc.)
- * @param {string} engine  'postgres' | 'mysql'
- * @returns {string}       DBML string
  */
-function sqlToDbml(sql, engine) {
+export function sqlToDbml(sql: string, engine: string): string {
   if (!sql || !sql.trim()) return '';
 
   const format = SUPPORTED_ENGINES[engine];
@@ -22,16 +17,13 @@ function sqlToDbml(sql, engine) {
     throw new Error(`sqlToDbml: unsupported engine "${engine}". Supported: ${Object.keys(SUPPORTED_ENGINES).join(', ')}`);
   }
 
-  return importer.import(sql, format);
+  return importer.import(sql, format as Parameters<typeof importer.import>[1]);
 }
 
 /**
  * Convert a DBML string to the internal schema model used by the diff engine.
- *
- * @param {string} dbmlStr  DBML string
- * @returns {object}        { tables: { [name]: { name, columns, primaryKey, indexes, foreignKeys } } }
  */
-function dbmlToSchema(dbmlStr) {
+export function dbmlToSchema(dbmlStr: string): Schema {
   if (!dbmlStr || !dbmlStr.trim()) return { tables: {} };
 
   const parser = new Parser();
@@ -39,25 +31,25 @@ function dbmlToSchema(dbmlStr) {
   const dbSchema = db.schemas[0];
   if (!dbSchema) return { tables: {} };
 
-  const tables = {};
+  const tables: Schema['tables'] = {};
 
   for (const table of dbSchema.tables) {
-    const columns = {};
-    const primaryKey = [];
-    const indexes = [];
+    const columns: Record<string, Column> = {};
+    const primaryKey: string[] = [];
+    const indexes: Schema['tables'][string]['indexes'] = [];
 
     // Parse fields
     for (const field of table.fields) {
       const isPk = field.pk === true;
       const isNotNull = field.not_null === true;
-      let defaultVal = null;
+      let defaultVal: string | null = null;
       if (field.dbdefault) {
-        defaultVal = field.dbdefault.value;
+        defaultVal = String(field.dbdefault.value);
       }
 
       columns[field.name] = {
         name: field.name,
-        type: field.type.type_name,
+        type: (field.type as { type_name: string }).type_name,
         nullable: !isNotNull,
         default: defaultVal,
         pk: isPk,
@@ -68,12 +60,13 @@ function dbmlToSchema(dbmlStr) {
 
     // Parse indexes
     for (const idx of table.indexes) {
-      const cols = idx.columns.map((c) => c.value);
+      const cols = idx.columns.map((c) => String(c.value));
 
       if (idx.pk) {
         // PK index — mark columns as pk
         for (const colName of cols) {
-          if (columns[colName]) columns[colName].pk = true;
+          const col = columns[colName];
+          if (col) col.pk = true;
           if (!primaryKey.includes(colName)) primaryKey.push(colName);
         }
       } else {
@@ -111,12 +104,10 @@ function dbmlToSchema(dbmlStr) {
       columns: manyEnd.fieldNames,
       refTable: oneEnd.tableName,
       refColumns: oneEnd.fieldNames,
-      onDelete: ref.onDelete ? ref.onDelete.toUpperCase() : null,
-      onUpdate: ref.onUpdate ? ref.onUpdate.toUpperCase() : null,
+      onDelete: ref.onDelete ? String(ref.onDelete).toUpperCase() : null,
+      onUpdate: ref.onUpdate ? String(ref.onUpdate).toUpperCase() : null,
     });
   }
 
   return { tables };
 }
-
-module.exports = { sqlToDbml, dbmlToSchema };

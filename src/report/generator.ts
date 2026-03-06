@@ -1,14 +1,13 @@
-'use strict';
+import type { DiffResult, TableDiff, ColumnDiff, Column, Index, ForeignKey, Table, Schema } from '../types';
 
 /**
  * Generate a diff report from a DiffResult.
- *
- * @param {object} diff    DiffResult from diffSchemas()
- * @param {object} schemas { baseline: schema, current: schema }
- * @param {string} format  'markdown' | 'text' | 'json'
- * @returns {string}
  */
-function generateReport(diff, schemas, format = 'markdown') {
+export function generateReport(
+  diff: DiffResult,
+  schemas: { baseline: Schema; current: Schema },
+  format = 'markdown'
+): string {
   if (format === 'json') return JSON.stringify(diff, null, 2);
   if (format === 'text') return _renderText(diff, schemas);
   return _renderMarkdown(diff, schemas);
@@ -16,7 +15,7 @@ function generateReport(diff, schemas, format = 'markdown') {
 
 // ─── Markdown ────────────────────────────────────────────────────────────────
 
-function _renderMarkdown(diff, schemas) {
+function _renderMarkdown(diff: DiffResult, schemas: { baseline: Schema; current: Schema }): string {
   const { addedTables, removedTables, modifiedTables, hasDestructive } = diff;
 
   const addedCount = addedTables.length;
@@ -27,7 +26,7 @@ function _renderMarkdown(diff, schemas) {
     return '## ✅ No Schema Changes Detected\n\nThe schema is identical to the baseline.';
   }
 
-  const lines = [];
+  const lines: string[] = [];
   lines.push('## 🔍 Schema Diff Report');
   lines.push('');
   lines.push('| | Summary |');
@@ -45,7 +44,7 @@ function _renderMarkdown(diff, schemas) {
     lines.push('### ✅ Added Tables');
     lines.push('');
     for (const name of addedTables) {
-      const table = schemas.current.tables[name];
+      const table = schemas.current.tables[name]!;
       lines.push('```dbml');
       lines.push(_tableToDbml(table));
       lines.push('```');
@@ -77,30 +76,30 @@ function _renderMarkdown(diff, schemas) {
       lines.push('```diff');
       lines.push(`  Table ${name} {`);
 
-      const baseline = schemas.baseline.tables[name];
-      const current = schemas.current.tables[name];
+      const baseline = schemas.baseline.tables[name]!;
+      const current = schemas.current.tables[name]!;
 
       // Unchanged columns
       for (const colName of Object.keys(baseline.columns)) {
         if (!tableDiff.removedColumns.includes(colName) && !tableDiff.modifiedColumns[colName]) {
-          lines.push(`    ${_colToDiff(baseline.columns[colName])}`);
+          lines.push(`    ${_colToDiff(baseline.columns[colName]!)}`);
         }
       }
 
       // Modified columns
-      for (const [colName, changes] of Object.entries(tableDiff.modifiedColumns)) {
-        lines.push(`-   ${_colToDiff(baseline.columns[colName])}`);
-        lines.push(`+   ${_colToDiff(current.columns[colName])}`);
+      for (const colName of Object.keys(tableDiff.modifiedColumns)) {
+        lines.push(`-   ${_colToDiff(baseline.columns[colName]!)}`);
+        lines.push(`+   ${_colToDiff(current.columns[colName]!)}`);
       }
 
       // Removed columns
       for (const colName of tableDiff.removedColumns) {
-        lines.push(`-   ${_colToDiff(baseline.columns[colName])}`);
+        lines.push(`-   ${_colToDiff(baseline.columns[colName]!)}`);
       }
 
       // Added columns
       for (const colName of tableDiff.addedColumns) {
-        lines.push(`+   ${_colToDiff(current.columns[colName])}`);
+        lines.push(`+   ${_colToDiff(current.columns[colName]!)}`);
       }
 
       lines.push('  }');
@@ -145,14 +144,14 @@ function _renderMarkdown(diff, schemas) {
 
 // ─── Text ────────────────────────────────────────────────────────────────────
 
-function _renderText(diff, schemas) {
+function _renderText(diff: DiffResult, schemas: { baseline: Schema; current: Schema }): string {
   const { addedTables, removedTables, modifiedTables, hasDestructive } = diff;
 
   if (addedTables.length === 0 && removedTables.length === 0 && Object.keys(modifiedTables).length === 0) {
     return 'No schema changes detected. The schema is identical to the baseline.';
   }
 
-  const lines = [];
+  const lines: string[] = [];
   lines.push('Schema Diff Report');
   lines.push('==================');
   lines.push(`Added tables:    ${addedTables.length}`);
@@ -190,12 +189,14 @@ function _renderText(diff, schemas) {
     lines.push('');
   }
 
+  // suppress unused parameter warning
+  void schemas;
   return lines.join('\n');
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function _tableToDbml(table) {
+function _tableToDbml(table: Table): string {
   const lines = [`Table ${table.name} {`];
   for (const col of Object.values(table.columns)) {
     lines.push(`  ${_colToDiff(col)}`);
@@ -204,8 +205,8 @@ function _tableToDbml(table) {
   return lines.join('\n');
 }
 
-function _colToDiff(col) {
-  const attrs = [];
+function _colToDiff(col: Column): string {
+  const attrs: string[] = [];
   if (col.pk) attrs.push('pk');
   if (!col.nullable) attrs.push('not null');
   if (col.default !== null && col.default !== undefined) attrs.push(`default: ${col.default}`);
@@ -213,8 +214,8 @@ function _colToDiff(col) {
   return `${col.name} ${col.type}${attrsStr}`;
 }
 
-function _getDestructiveWarnings(tableName, tableDiff) {
-  const warnings = [];
+function _getDestructiveWarnings(tableName: string, tableDiff: TableDiff): string[] {
+  const warnings: string[] = [];
   for (const col of tableDiff.removedColumns) {
     warnings.push(`Column \`${col}\` removed from \`${tableName}\`. Ensure data has been migrated before deploying.`);
   }
@@ -228,5 +229,3 @@ function _getDestructiveWarnings(tableName, tableDiff) {
   }
   return warnings;
 }
-
-module.exports = { generateReport };
