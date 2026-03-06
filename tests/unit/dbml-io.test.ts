@@ -1,6 +1,5 @@
-'use strict';
-
-const { sqlToDbml, dbmlToSchema } = require('../../src/schema/dbml-io');
+import { sqlToDbml, dbmlToSchema } from '../../src/schema/dbml-io';
+import { diffSchemas } from '../../src/diff/engine';
 
 const PG_DUMP = `
 CREATE TABLE users (
@@ -90,7 +89,7 @@ Ref "posts_user_fk":"posts"."user_id" > "users"."id" [delete: cascade]
 `;
 
 describe('dbmlToSchema', () => {
-  let schema;
+  let schema: ReturnType<typeof dbmlToSchema>;
 
   beforeAll(() => {
     schema = dbmlToSchema(SAMPLE_DBML);
@@ -105,7 +104,7 @@ describe('dbmlToSchema', () => {
   });
 
   test('parses columns with correct structure', () => {
-    const col = schema.tables.users.columns.email;
+    const col = schema.tables['users']!.columns['email'];
     expect(col).toEqual({
       name: 'email',
       type: 'varchar(255)',
@@ -116,46 +115,46 @@ describe('dbmlToSchema', () => {
   });
 
   test('parses primary key from index', () => {
-    expect(schema.tables.users.primaryKey).toContain('id');
-    expect(schema.tables.users.columns.id.pk).toBe(true);
+    expect(schema.tables['users']!.primaryKey).toContain('id');
+    expect(schema.tables['users']!.columns['id']!.pk).toBe(true);
   });
 
   test('parses primary key from field attribute', () => {
-    expect(schema.tables.posts.primaryKey).toContain('id');
-    expect(schema.tables.posts.columns.id.pk).toBe(true);
+    expect(schema.tables['posts']!.primaryKey).toContain('id');
+    expect(schema.tables['posts']!.columns['id']!.pk).toBe(true);
   });
 
   test('parses nullable correctly', () => {
-    expect(schema.tables.users.columns.name.nullable).toBe(true);
-    expect(schema.tables.users.columns.id.nullable).toBe(false);
+    expect(schema.tables['users']!.columns['name']!.nullable).toBe(true);
+    expect(schema.tables['users']!.columns['id']!.nullable).toBe(false);
   });
 
   test('parses default value', () => {
-    expect(schema.tables.users.columns.created_at.default).toBe('now()');
+    expect(schema.tables['users']!.columns['created_at']!.default).toBe('now()');
   });
 
   test('parses unique index', () => {
-    const idx = schema.tables.users.indexes.find((i) => i.name === 'idx_users_email');
+    const idx = schema.tables['users']!.indexes.find((i) => i.name === 'idx_users_email');
     expect(idx).toBeDefined();
-    expect(idx.unique).toBe(true);
-    expect(idx.columns).toEqual(['email']);
+    expect(idx!.unique).toBe(true);
+    expect(idx!.columns).toEqual(['email']);
   });
 
   test('parses non-unique index', () => {
-    const idx = schema.tables.posts.indexes.find((i) => i.name === 'idx_posts_user');
+    const idx = schema.tables['posts']!.indexes.find((i) => i.name === 'idx_posts_user');
     expect(idx).toBeDefined();
-    expect(idx.unique).toBe(false);
-    expect(idx.columns).toEqual(['user_id']);
+    expect(idx!.unique).toBe(false);
+    expect(idx!.columns).toEqual(['user_id']);
   });
 
   test('parses foreign key', () => {
-    const fk = schema.tables.posts.foreignKeys[0];
+    const fk = schema.tables['posts']!.foreignKeys[0];
     expect(fk).toBeDefined();
-    expect(fk.name).toBe('posts_user_fk');
-    expect(fk.columns).toEqual(['user_id']);
-    expect(fk.refTable).toBe('users');
-    expect(fk.refColumns).toEqual(['id']);
-    expect(fk.onDelete).toBe('CASCADE');
+    expect(fk!.name).toBe('posts_user_fk');
+    expect(fk!.columns).toEqual(['user_id']);
+    expect(fk!.refTable).toBe('users');
+    expect(fk!.refColumns).toEqual(['id']);
+    expect(fk!.onDelete).toBe('CASCADE');
   });
 
   test('returns empty tables for empty DBML', () => {
@@ -163,8 +162,6 @@ describe('dbmlToSchema', () => {
     expect(s.tables).toEqual({});
   });
 });
-
-const { diffSchemas } = require('../../src/diff/engine');
 
 describe('round-trip: SQL → DBML → schema → diff', () => {
   test('baseline and current from SQL produce correct diff', () => {
@@ -200,7 +197,7 @@ describe('round-trip: SQL → DBML → schema → diff', () => {
 
     expect(diff.addedTables).toContain('orders');
     expect(diff.removedTables).toHaveLength(0);
-    expect(diff.modifiedTables.users).toBeDefined();
-    expect(diff.modifiedTables.users.addedColumns).toContain('phone');
+    expect(diff.modifiedTables['users']).toBeDefined();
+    expect(diff.modifiedTables['users']!.addedColumns).toContain('phone');
   });
 });

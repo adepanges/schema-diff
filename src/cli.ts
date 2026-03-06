@@ -1,13 +1,14 @@
 #!/usr/bin/env node
-'use strict';
+import { program } from 'commander';
+import { run } from './core';
 
-const { program } = require('commander');
-const { run } = require('./core');
+// Use require() for package.json to avoid rootDir constraint
+const pkg = require('../package.json') as { version: string };
 
 program
   .name('schema-diff')
   .description('Migration-tool agnostic database schema diff tool')
-  .version(require('../package.json').version);
+  .version(pkg.version);
 
 program
   .command('diff')
@@ -20,7 +21,16 @@ program
   .option('--output-dir <path>', 'Directory to write output files', '.schema-diff')
   .option('--format <format>', 'Report format: markdown | text | json', 'markdown')
   .option('--fail-on-destructive', 'Exit with code 1 if destructive changes are detected', false)
-  .action(async (opts) => {
+  .action(async (opts: {
+    dbEngine: string;
+    dbVersion: string;
+    migrateCommand: string;
+    migrationsPath: string;
+    baseline?: string;
+    outputDir: string;
+    format: string;
+    failOnDestructive: boolean;
+  }) => {
     try {
       const result = await run({
         dbEngine: opts.dbEngine,
@@ -40,7 +50,7 @@ program
         process.exit(1);
       }
     } catch (err) {
-      console.error(`\nError: ${err.message}`);
+      console.error(`\nError: ${(err as Error).message}`);
       process.exit(1);
     }
   });

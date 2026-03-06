@@ -1,4 +1,4 @@
-'use strict';
+import type { Schema, Table, Column, Index, ForeignKey } from '../types';
 
 /**
  * Parse SQL DDL into a structured schema model.
@@ -6,23 +6,11 @@
  * Supports output from:
  *  - pg_dump (--schema-only --no-owner --no-privileges)
  *  - mysqldump (--no-data)
- *
- * Returns:
- * {
- *   tables: {
- *     "tableName": {
- *       name: string,
- *       columns: { "colName": { name, type, nullable, default, pk } },
- *       primaryKey: string[],
- *       indexes: [{ name, columns, unique }],
- *       foreignKeys: [{ name, columns, refTable, refColumns, onDelete, onUpdate }],
- *     }
- *   }
- * }
+ *  - sqlite3 (.schema)
  */
-function parseSchema(sql) {
+export function parseSchema(sql: string): Schema {
   const normalized = _normalize(sql);
-  const tables = {};
+  const tables: Record<string, Table> = {};
 
   _parseCreateTables(normalized, tables);
   _parseAlterTableConstraints(normalized, tables);
@@ -33,7 +21,7 @@ function parseSchema(sql) {
 
 // ─── Normalize ───────────────────────────────────────────────────────────────
 
-function _normalize(sql) {
+function _normalize(sql: string): string {
   // Strip single-line comments
   let s = sql.replace(/--[^\n]*/g, '');
   // Strip multi-line comments
@@ -45,22 +33,22 @@ function _normalize(sql) {
 
 // ─── CREATE TABLE ─────────────────────────────────────────────────────────────
 
-function _parseCreateTables(sql, tables) {
+function _parseCreateTables(sql: string, tables: Record<string, Table>): void {
   // Match CREATE TABLE [IF NOT EXISTS] [`]name[`] ( ... );
   const re = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:`?[\w.]+`?\.)?`?([\w]+)`?\s*\(([\s\S]*?)\)\s*(?:ENGINE\s*=\s*\w+[^;]*)?;/gi;
-  let m;
+  let m: RegExpExecArray | null;
   while ((m = re.exec(sql)) !== null) {
-    const tableName = m[1];
-    const body = m[2];
+    const tableName = m[1]!;
+    const body = m[2]!;
     tables[tableName] = _parseTableBody(tableName, body);
   }
 }
 
-function _parseTableBody(tableName, body) {
-  const columns = {};
-  const primaryKey = [];
-  const indexes = [];
-  const foreignKeys = [];
+function _parseTableBody(tableName: string, body: string): Table {
+  const columns: Record<string, Column> = {};
+  const primaryKey: string[] = [];
+  const indexes: Index[] = [];
+  const foreignKeys: ForeignKey[] = [];
 
   const lines = _splitTableLines(body);
 
@@ -134,7 +122,8 @@ function _parseTableBody(tableName, body) {
   // Normalize PK: if primaryKey populated, mark those columns as pk
   if (primaryKey.length > 0) {
     for (const colName of primaryKey) {
-      if (columns[colName]) columns[colName].pk = true;
+      const col = columns[colName];
+      if (col) col.pk = true;
     }
   }
 
@@ -142,13 +131,13 @@ function _parseTableBody(tableName, body) {
 }
 
 /** Split CREATE TABLE body into individual clause lines, respecting nested parens */
-function _splitTableLines(body) {
-  const lines = [];
+function _splitTableLines(body: string): string[] {
+  const lines: string[] = [];
   let depth = 0;
   let current = '';
 
   for (let i = 0; i < body.length; i++) {
-    const ch = body[i];
+    const ch = body[i]!;
     if (ch === '(') {
       depth++;
       current += ch;
@@ -167,13 +156,13 @@ function _splitTableLines(body) {
 }
 
 /** Parse a single column definition line */
-function _parseColumnDef(line) {
+function _parseColumnDef(line: string): Column | null {
   // Strip backticks and quotes from column name
   const colMatch = line.match(/^[`"']?([\w]+)[`"']?\s+(.+)$/i);
   if (!colMatch) return null;
 
-  const name = colMatch[1];
-  const rest = colMatch[2];
+  const name = colMatch[1]!;
+  const rest = colMatch[2]!;
 
   // Skip reserved words that aren't column names
   const reserved = /^(PRIMARY|UNIQUE|KEY|INDEX|CONSTRAINT|CHECK|FOREIGN|REFERENCES|SET|FULLTEXT|SPATIAL)/i;
@@ -187,32 +176,32 @@ function _parseColumnDef(line) {
   return { name, type, nullable, default: defaultVal, pk };
 }
 
-function _extractType(rest) {
+function _extractType(rest: string): string {
   // Match data type: word optionally followed by (params)
   const m = rest.match(/^([\w\s]+(?:\([^)]*\))?)/);
-  if (!m) return rest.split(/\s/)[0];
+  if (!m) return rest.split(/\s/)[0] ?? rest;
   // Clean up: take up to first keyword boundary
-  let t = m[1].trim();
+  let t = m[1]!.trim();
   // Remove trailing modifiers like UNSIGNED, ZEROFILL, CHARACTER SET ...
   t = t.replace(/\s+(NOT\s+NULL|NULL|DEFAULT|PRIMARY|UNIQUE|AUTO_INCREMENT|REFERENCES|CHECK|GENERATED|AS|COMMENT|COLLATE|CHARACTER\s+SET|UNSIGNED|ZEROFILL|ON\s+UPDATE).*/i, '');
   return t.trim();
 }
 
-function _extractDefault(rest) {
+function _extractDefault(rest: string): string | null {
   const m = rest.match(/DEFAULT\s+('[^']*'|"[^"]*"|`[^`]*`|\S+)/i);
   if (!m) return null;
-  return m[1].replace(/^['"`]|['"`]$/g, '');
+  return m[1]!.replace(/^['"`]|['"`]$/g, '');
 }
 
 // ─── ALTER TABLE (PostgreSQL constraints) ────────────────────────────────────
 
-function _parseAlterTableConstraints(sql, tables) {
+function _parseAlterTableConstraints(sql: string, tables: Record<string, Table>): void {
   const re = /ALTER\s+TABLE\s+(?:ONLY\s+)?(?:[\w]+\.)?`?([\w]+)`?\s+ADD\s+CONSTRAINT\s+`?([\w]+)`?\s+([\s\S]*?);/gi;
-  let m;
+  let m: RegExpExecArray | null;
   while ((m = re.exec(sql)) !== null) {
-    const tableName = m[1];
-    const constraintName = m[2];
-    const constraintDef = m[3].trim();
+    const tableName = m[1]!;
+    const constraintName = m[2]!;
+    const constraintDef = m[3]!.trim();
     const table = tables[tableName];
     if (!table) continue;
 
@@ -220,7 +209,8 @@ function _parseAlterTableConstraints(sql, tables) {
       const cols = _extractColumnList(constraintDef);
       table.primaryKey.push(...cols);
       for (const c of cols) {
-        if (table.columns[c]) table.columns[c].pk = true;
+        const col = table.columns[c];
+        if (col) col.pk = true;
       }
     } else if (/^UNIQUE/i.test(constraintDef)) {
       const cols = _extractColumnList(constraintDef);
@@ -234,21 +224,21 @@ function _parseAlterTableConstraints(sql, tables) {
 
 // ─── CREATE INDEX ────────────────────────────────────────────────────────────
 
-function _parseCreateIndexes(sql, tables) {
+function _parseCreateIndexes(sql: string, tables: Record<string, Table>): void {
   const re = /CREATE\s+(UNIQUE\s+)?INDEX\s+(?:CONCURRENTLY\s+)?`?([\w]+)`?\s+ON\s+(?:[\w]+\.)?`?([\w]+)`?\s*(?:USING\s+\w+\s*)?\(([\s\S]*?)\)\s*;/gi;
-  let m;
+  let m: RegExpExecArray | null;
   while ((m = re.exec(sql)) !== null) {
     const unique = Boolean(m[1]);
-    const idxName = m[2];
-    const tableName = m[3];
-    const colsPart = m[4];
+    const idxName = m[2]!;
+    const tableName = m[3]!;
+    const colsPart = m[4]!;
     const table = tables[tableName];
     if (!table) continue;
 
     // Extract column names (strip expressions like LOWER(email))
     const cols = colsPart.split(',').map((c) => {
       const cm = c.trim().match(/`?([\w]+)`?/);
-      return cm ? cm[1] : c.trim();
+      return cm ? cm[1]! : c.trim();
     });
 
     table.indexes.push({ name: idxName, columns: cols, unique });
@@ -257,7 +247,7 @@ function _parseCreateIndexes(sql, tables) {
 
 // ─── Foreign Key Parser ───────────────────────────────────────────────────────
 
-function _parseForeignKey(line, constraintName) {
+function _parseForeignKey(line: string, constraintName?: string): ForeignKey | null {
   // FOREIGN KEY (col1, col2) REFERENCES refTable (refCol1, refCol2) [ON DELETE ...] [ON UPDATE ...]
   const ACTION = '(?:NO\\s+ACTION|SET\\s+NULL|SET\\s+DEFAULT|CASCADE|RESTRICT)';
   const fkRe = new RegExp(
@@ -269,37 +259,36 @@ function _parseForeignKey(line, constraintName) {
   const m = line.match(fkRe);
   if (!m) return null;
 
-  const cols = m[1].split(',').map((c) => c.trim().replace(/[`"']/g, ''));
-  const refTable = m[2];
-  const refCols = m[3].split(',').map((c) => c.trim().replace(/[`"']/g, ''));
+  const cols = m[1]!.split(',').map((c) => c.trim().replace(/[`"']/g, ''));
+  const refTable = m[2]!;
+  const refCols = m[3]!.split(',').map((c) => c.trim().replace(/[`"']/g, ''));
   const onDelete = m[4] ? m[4].toUpperCase() : null;
   const onUpdate = m[5] ? m[5].toUpperCase() : null;
 
   // Try to extract CONSTRAINT name if embedded
-  if (!constraintName) {
+  let resolvedName = constraintName ?? null;
+  if (!resolvedName) {
     const nm = line.match(/CONSTRAINT\s+`?([\w]+)`?\s+FOREIGN/i);
-    constraintName = nm ? nm[1] : null;
+    resolvedName = nm ? nm[1]! : null;
   }
 
-  return { name: constraintName, columns: cols, refTable, refColumns: refCols, onDelete, onUpdate };
+  return { name: resolvedName, columns: cols, refTable, refColumns: refCols, onDelete, onUpdate };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function _extractColumnList(line) {
+function _extractColumnList(line: string): string[] {
   const m = line.match(/\(([^)]+)\)/);
   if (!m) return [];
-  return m[1].split(',').map((c) => c.trim().replace(/[`"'\s]/g, ''));
+  return m[1]!.split(',').map((c) => c.trim().replace(/[`"'\s]/g, ''));
 }
 
-function _extractIndexName(line) {
+function _extractIndexName(line: string): string | null {
   const m = line.match(/(?:KEY|INDEX)\s+`?([\w]+)`?\s*\(/i);
-  return m ? m[1] : null;
+  return m ? m[1]! : null;
 }
 
-function _extractConstraintName(line) {
+function _extractConstraintName(line: string): string | null {
   const m = line.match(/CONSTRAINT\s+`?([\w]+)`?/i);
-  return m ? m[1] : null;
+  return m ? m[1]! : null;
 }
-
-module.exports = { parseSchema };

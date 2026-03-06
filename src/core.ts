@@ -1,40 +1,19 @@
-'use strict';
+import fs from 'fs';
+import path from 'path';
 
-const fs = require('fs');
-const path = require('path');
-
-const { DbManager } = require('./db/manager');
-const { runMigration } = require('./migrate/runner');
-const { dumpSchema } = require('./schema/dumper');
-const { parseSchema } = require('./schema/parser');
-const { toDbml } = require('./schema/dbml');
-const { diffSchemas } = require('./diff/engine');
-const { generateReport } = require('./report/generator');
+import { DbManager } from './db/manager';
+import { runMigration } from './migrate/runner';
+import { dumpSchema } from './schema/dumper';
+import { parseSchema } from './schema/parser';
+import { toDbml } from './schema/dbml';
+import { diffSchemas } from './diff/engine';
+import { generateReport } from './report/generator';
+import type { RunOptions, RunResult, Schema } from './types';
 
 /**
  * Main schema-diff flow.
- *
- * @param {object} opts
- * @param {string}  opts.dbEngine          'postgres' | 'mysql'
- * @param {string}  [opts.dbVersion]       Docker image tag (default 'latest')
- * @param {string}  opts.migrateCommand    Shell command to run migrations
- * @param {string}  [opts.migrationsPath]  Working directory for the migration command
- * @param {string}  [opts.baselineFile]    Path to a baseline DBML file (optional)
- * @param {string}  [opts.outputDir]       Directory to write output files (default '.schema-diff')
- * @param {string}  [opts.format]          Report format: 'markdown' | 'text' | 'json'
- * @param {boolean} [opts.failOnDestructive]  Throw if destructive changes found
- * @param {function} [opts.log]            Logger function (default console.log)
- * @returns {Promise<RunResult>}
- *
- * RunResult: {
- *   report: string,
- *   diff: DiffResult,
- *   currentDbml: string,
- *   currentSql: string,
- *   outputDir: string,
- * }
  */
-async function run(opts) {
+export async function run(opts: RunOptions): Promise<RunResult> {
   const {
     dbEngine,
     dbVersion = 'latest',
@@ -58,10 +37,10 @@ async function run(opts) {
   const db = new DbManager(dbEngine, dbVersion);
   await db.start();
 
-  let currentSql;
-  let currentDbml;
-  let diff;
-  let report;
+  let currentSql: string;
+  let currentDbml: string;
+  let diff: ReturnType<typeof diffSchemas>;
+  let report: string;
 
   try {
     // 2. Run migrations
@@ -72,13 +51,13 @@ async function run(opts) {
       if (result.stdout) log(result.stdout);
       if (result.stderr) log(result.stderr);
     } catch (err) {
-      throw new Error(`Migration failed: ${err.message}`);
+      throw new Error(`Migration failed: ${(err as Error).message}`);
     }
 
     // 3. Dump schema
     log('[schema-diff] Dumping schema...');
     const dbCfg = { ...db.getConfig(), containerId: db.containerId };
-    currentSql = dumpSchema(dbCfg);
+    currentSql = dumpSchema(dbCfg as Parameters<typeof dumpSchema>[0]);
     fs.writeFileSync(path.join(outputDir, 'dump.sql'), currentSql, 'utf8');
 
     // 4. Parse and convert to DBML
@@ -87,7 +66,7 @@ async function run(opts) {
     fs.writeFileSync(path.join(outputDir, 'current.dbml'), currentDbml, 'utf8');
 
     // 5. Load/parse baseline
-    let baselineSchema;
+    let baselineSchema: Schema;
     if (baselineFile && fs.existsSync(baselineFile)) {
       log(`[schema-diff] Loading baseline from ${baselineFile}`);
       // Baseline can be a DBML file or SQL dump
@@ -120,5 +99,3 @@ async function run(opts) {
 
   return { report, diff, currentDbml, currentSql, outputDir };
 }
-
-module.exports = { run };
