@@ -1,4 +1,4 @@
-import type { Schema, Table, Column, Index, ForeignKey } from '../types';
+import type { Schema, Table, Column, Index, ForeignKey, DbFunction, FunctionParam } from '../types';
 
 /**
  * Parse SQL DDL into a structured schema model.
@@ -11,12 +11,14 @@ import type { Schema, Table, Column, Index, ForeignKey } from '../types';
 export function parseSchema(sql: string): Schema {
   const normalized = _normalize(sql);
   const tables: Record<string, Table> = {};
+  const functions: Record<string, DbFunction> = {};
 
   _parseCreateTables(normalized, tables);
   _parseAlterTableConstraints(normalized, tables);
   _parseCreateIndexes(normalized, tables);
+  _parseCreateFunctions(normalized, functions);
 
-  return { tables };
+  return { tables, functions };
 }
 
 // ─── Normalize ───────────────────────────────────────────────────────────────
@@ -291,4 +293,95 @@ function _extractIndexName(line: string): string | null {
 function _extractConstraintName(line: string): string | null {
   const m = line.match(/CONSTRAINT\s+`?([\w]+)`?/i);
   return m ? m[1]! : null;
+}
+
+// ─── Function / Procedure parsing ────────────────────────────────────────────
+
+function _parseCreateFunctions(sql: string, functions: Record<string, DbFunction>): void {
+  _parsePostgresFunctions(sql, functions);
+  _parseMysqlFunctions(sql, functions);
+}
+
+/**
+ * Parse PostgreSQL-style CREATE FUNCTION/PROCEDURE with dollar-quoted body.
+ * Pattern: CREATE [OR REPLACE] FUNCTION|PROCEDURE name(params) [RETURNS type]
+ *   AS $tag$ body $tag$ LANGUAGE lang;
+ */
+function _parsePostgresFunctions(sql: string, functions: Record<string, DbFunction>): void {
+  const re = /CREATE\s+(?:OR\s+REPLACE\s+)?(FUNCTION|PROCEDURE)\s+(?:[\w]+\.)?`?([\w]+)`?\s*\(([^)]*)\)\s*(?:RETURNS\s+([\w\s]+?)\s+)?AS\s+\$(\w*)\$([\s\S]*?)\$\5\$\s+LANGUAGE\s+(\w+)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(sql)) !== null) {
+    const kind = m[1]!.toLowerCase() as 'function' | 'procedure';
+    const name = m[2]!;
+    const paramsStr = m[3] ?? '';
+    const returnType = m[4] ? m[4].trim() : 'void';
+    const body = m[6] ?? '';
+    const language = m[7] ?? '';
+
+    functions[name] = {
+      name,
+      params: _parseFunctionParams(paramsStr),
+      returnType,
+      language,
+      body: body.trim(),
+      kind,
+    };
+  }
+}
+
+/**
+ * Parse MySQL-style CREATE FUNCTION/PROCEDURE with BEGIN...END body.
+ * Pattern: CREATE [DEFINER=...] FUNCTION|PROCEDURE name(params) [RETURNS type]
+ *   BEGIN body END
+ */
+function _parseMysqlFunctions(sql: string, functions: Record<string, DbFunction>): void {
+  const re = /CREATE\s+(?:DEFINER\s*=\s*\S+\s+)?(FUNCTION|PROCEDURE)\s+`?([\w]+)`?\s*\(([^)]*)\)\s*(?:RETURNS\s+([\w\s(),.]+?)\s+)?(?:\w+\s+)*?BEGIN([\s\S]*?)END/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(sql)) !== null) {
+    const kind = m[1]!.toLowerCase() as 'function' | 'procedure';
+    const name = m[2]!;
+    // Skip if already parsed (e.g. from Postgres patterns)
+    if (functions[name]) continue;
+
+    const paramsStr = m[3] ?? '';
+    const returnType = m[4] ? m[4].trim() : 'void';
+    const body = m[5] ?? '';
+
+    functions[name] = {
+      name,
+      params: _parseFunctionParams(paramsStr),
+      returnType,
+      language: 'sql',
+      body: body.trim(),
+      kind,
+    };
+  }
+}
+
+/**
+ * Parse function parameter list: "IN amount NUMERIC, OUT result TEXT" etc.
+ */
+function _parseFunctionParams(paramsStr: string): FunctionParam[] {
+  if (!paramsStr.trim()) return [];
+
+  return paramsStr.split(',').map((p) => {
+    const parts = p.trim().split(/\s+/);
+    const modes = ['IN', 'OUT', 'INOUT', 'VARIADIC'];
+    let mode: FunctionParam['mode'] = 'IN';
+    let name = '';
+    let type = '';
+
+    if (parts.length >= 3 && modes.includes(parts[0]!.toUpperCase())) {
+      mode = parts[0]!.toUpperCase() as FunctionParam['mode'];
+      name = parts[1]!;
+      type = parts.slice(2).join(' ');
+    } else if (parts.length >= 2) {
+      name = parts[0]!;
+      type = parts.slice(1).join(' ');
+    } else {
+      type = parts[0] ?? '';
+    }
+
+    return { name, type, mode };
+  });
 }

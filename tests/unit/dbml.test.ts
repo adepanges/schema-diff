@@ -2,7 +2,7 @@ import { toDbml } from '../../src/schema/dbml';
 import type { Schema } from '../../src/types';
 
 function makeSchema(tables: Schema['tables']): Schema {
-  return { tables };
+  return { tables, functions: {} };
 }
 
 describe('toDbml', () => {

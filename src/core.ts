@@ -75,7 +75,7 @@ export async function run(opts: RunOptions): Promise<RunResult> {
       fs.writeFileSync(path.join(outputDir, 'baseline.dbml'), toDbml(baselineSchema), 'utf8');
     } else {
       log('[schema-diff] No baseline provided — treating all tables as new');
-      baselineSchema = { tables: {} };
+      baselineSchema = { tables: {}, functions: {} };
     }
 
     // 6. Diff

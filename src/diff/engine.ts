@@ -1,4 +1,4 @@
-import type { Schema, Table, Column, Index, ForeignKey, DiffResult, TableDiff, ColumnDiff } from '../types';
+import type { Schema, Table, Column, Index, ForeignKey, DiffResult, TableDiff, ColumnDiff, FunctionDiff, DbFunction, FunctionParam } from '../types';
 
 /**
  * Diff two schema models.
@@ -20,11 +20,27 @@ export function diffSchemas(baseline: Schema, current: Schema): DiffResult {
     }
   }
 
+  // Function diffing
+  const baselineFns = baseline.functions ?? {};
+  const currentFns = current.functions ?? {};
+  const baselineFnNames = new Set(Object.keys(baselineFns));
+  const currentFnNames = new Set(Object.keys(currentFns));
+
+  const addedFunctions = [...currentFnNames].filter((n) => !baselineFnNames.has(n));
+  const removedFunctions = [...baselineFnNames].filter((n) => !currentFnNames.has(n));
+
+  const modifiedFunctions: Record<string, FunctionDiff> = {};
+  const commonFns = [...baselineFnNames].filter((n) => currentFnNames.has(n));
+  for (const name of commonFns) {
+    const d = _diffFunction(baselineFns[name]!, currentFns[name]!);
+    if (d) modifiedFunctions[name] = d;
+  }
+
   const hasDestructive =
     removedTables.length > 0 ||
     Object.values(modifiedTables).some(_isDestructive);
 
-  return { addedTables, removedTables, modifiedTables, hasDestructive };
+  return { addedTables, removedTables, modifiedTables, addedFunctions, removedFunctions, modifiedFunctions, hasDestructive };
 }
 
 function _diffTable(baseline: Table, current: Table): TableDiff {
@@ -123,4 +139,36 @@ function _diffArrays<T>(baseArr: T[], curArr: T[], keyFn: (x: T) => string): { a
   const added = [...curMap.values()].filter((x) => !baseMap.has(keyFn(x)));
   const removed = [...baseMap.values()].filter((x) => !curMap.has(keyFn(x)));
   return { added, removed };
+}
+
+// ─── Function diffing ────────────────────────────────────────────────────────
+
+function _paramsEqual(a: FunctionParam[], b: FunctionParam[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i]!.name !== b[i]!.name || a[i]!.type !== b[i]!.type || a[i]!.mode !== b[i]!.mode) return false;
+  }
+  return true;
+}
+
+function _diffFunction(baseline: DbFunction, current: DbFunction): FunctionDiff | null {
+  const changes: FunctionDiff = { name: current.name, kind: current.kind, bodyChanged: false };
+  let hasChanges = false;
+
+  if (!_paramsEqual(baseline.params, current.params)) {
+    changes.params = { from: baseline.params, to: current.params };
+    hasChanges = true;
+  }
+
+  if (baseline.returnType !== current.returnType) {
+    changes.returnType = { from: baseline.returnType, to: current.returnType };
+    hasChanges = true;
+  }
+
+  if (baseline.body !== current.body) {
+    changes.bodyChanged = true;
+    hasChanges = true;
+  }
+
+  return hasChanges ? changes : null;
 }

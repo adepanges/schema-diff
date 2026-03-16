@@ -24,12 +24,12 @@ export function sqlToDbml(sql: string, engine: string): string {
  * Convert a DBML string to the internal schema model used by the diff engine.
  */
 export function dbmlToSchema(dbmlStr: string): Schema {
-  if (!dbmlStr || !dbmlStr.trim()) return { tables: {} };
+  if (!dbmlStr || !dbmlStr.trim()) return { tables: {}, functions: {} };
 
   const parser = new Parser();
   const db = parser.parse(dbmlStr, 'dbml');
   const dbSchema = db.schemas[0];
-  if (!dbSchema) return { tables: {} };
+  if (!dbSchema) return { tables: {}, functions: {} };
 
   const tables: Schema['tables'] = {};
 
@@ -109,5 +109,5 @@ export function dbmlToSchema(dbmlStr: string): Schema {
     });
   }
 
-  return { tables };
+  return { tables, functions: {} };
 }

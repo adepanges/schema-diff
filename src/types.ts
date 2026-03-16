@@ -33,9 +33,27 @@ export interface Table {
   foreignKeys: ForeignKey[];
 }
 
+/** A parameter to a stored function or procedure */
+export interface FunctionParam {
+  name: string;
+  type: string;
+  mode: 'IN' | 'OUT' | 'INOUT' | 'VARIADIC';
+}
+
+/** A stored function or procedure */
+export interface DbFunction {
+  name: string;
+  params: FunctionParam[];
+  returnType: string;
+  language: string;
+  body: string;
+  kind: 'function' | 'procedure';
+}
+
 /** The top-level schema model */
 export interface Schema {
   tables: Record<string, Table>;
+  functions: Record<string, DbFunction>;
 }
 
 /** Diff result for a single column — uses from/to keys */
@@ -58,11 +76,23 @@ export interface TableDiff {
   removedForeignKeys: ForeignKey[];
 }
 
+/** Diff result for a single function or procedure */
+export interface FunctionDiff {
+  name: string;
+  kind: 'function' | 'procedure';
+  params?: { from: FunctionParam[]; to: FunctionParam[] };
+  returnType?: { from: string; to: string };
+  bodyChanged: boolean;
+}
+
 /** Top-level diff result */
 export interface DiffResult {
   addedTables: string[];
   removedTables: string[];
   modifiedTables: Record<string, TableDiff>;
+  addedFunctions: string[];
+  removedFunctions: string[];
+  modifiedFunctions: Record<string, FunctionDiff>;
   hasDestructive: boolean;
 }
 
