@@ -1,42 +1,20 @@
-'use strict';
+import type { Schema, Table, Column, Index, ForeignKey, DiffResult, TableDiff, ColumnDiff } from '../types';
 
 /**
  * Diff two schema models.
- *
- * @param {object} baseline  Schema from parser.js (baseline branch)
- * @param {object} current   Schema from parser.js (current branch)
- * @returns {DiffResult}
- *
- * DiffResult: {
- *   addedTables:    string[],
- *   removedTables:  string[],
- *   modifiedTables: { [name]: TableDiff },
- *   hasDestructive: boolean,
- * }
- *
- * TableDiff: {
- *   name: string,
- *   addedColumns:    string[],
- *   removedColumns:  string[],
- *   modifiedColumns: { [name]: ColumnDiff },
- *   addedIndexes:    IndexDef[],
- *   removedIndexes:  IndexDef[],
- *   addedForeignKeys:   FKDef[],
- *   removedForeignKeys: FKDef[],
- * }
  */
-function diffSchemas(baseline, current) {
+export function diffSchemas(baseline: Schema, current: Schema): DiffResult {
   const baselineNames = new Set(Object.keys(baseline.tables));
   const currentNames = new Set(Object.keys(current.tables));
 
   const addedTables = [...currentNames].filter((n) => !baselineNames.has(n));
   const removedTables = [...baselineNames].filter((n) => !currentNames.has(n));
 
-  const modifiedTables = {};
+  const modifiedTables: Record<string, TableDiff> = {};
   const commonTables = [...baselineNames].filter((n) => currentNames.has(n));
 
   for (const name of commonTables) {
-    const diff = _diffTable(baseline.tables[name], current.tables[name]);
+    const diff = _diffTable(baseline.tables[name]!, current.tables[name]!);
     if (_hasTableChanges(diff)) {
       modifiedTables[name] = diff;
     }
@@ -49,7 +27,7 @@ function diffSchemas(baseline, current) {
   return { addedTables, removedTables, modifiedTables, hasDestructive };
 }
 
-function _diffTable(baseline, current) {
+function _diffTable(baseline: Table, current: Table): TableDiff {
   const baselineCols = baseline.columns;
   const currentCols = current.columns;
 
@@ -59,10 +37,10 @@ function _diffTable(baseline, current) {
   const addedColumns = [...currentColNames].filter((n) => !baselineColNames.has(n));
   const removedColumns = [...baselineColNames].filter((n) => !currentColNames.has(n));
 
-  const modifiedColumns = {};
+  const modifiedColumns: Record<string, ColumnDiff> = {};
   const commonCols = [...baselineColNames].filter((n) => currentColNames.has(n));
   for (const name of commonCols) {
-    const d = _diffColumn(baselineCols[name], currentCols[name]);
+    const d = _diffColumn(baselineCols[name]!, currentCols[name]!);
     if (d) modifiedColumns[name] = d;
   }
 
@@ -84,8 +62,8 @@ function _diffTable(baseline, current) {
   };
 }
 
-function _diffColumn(baseline, current) {
-  const changes = {};
+function _diffColumn(baseline: Column, current: Column): ColumnDiff | null {
+  const changes: ColumnDiff = {};
 
   if (_normalizeType(baseline.type) !== _normalizeType(current.type)) {
     changes.type = { from: baseline.type, to: current.type };
@@ -103,7 +81,7 @@ function _diffColumn(baseline, current) {
   return Object.keys(changes).length > 0 ? changes : null;
 }
 
-function _hasTableChanges(diff) {
+function _hasTableChanges(diff: TableDiff): boolean {
   return (
     diff.addedColumns.length > 0 ||
     diff.removedColumns.length > 0 ||
@@ -115,7 +93,7 @@ function _hasTableChanges(diff) {
   );
 }
 
-function _isDestructive(tableDiff) {
+function _isDestructive(tableDiff: TableDiff): boolean {
   // Removed columns, type changes that narrow data are destructive
   if (tableDiff.removedColumns.length > 0) return true;
   for (const changes of Object.values(tableDiff.modifiedColumns)) {
@@ -127,24 +105,22 @@ function _isDestructive(tableDiff) {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function _normalizeType(t) {
+function _normalizeType(t: string): string {
   return (t || '').toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
-function _indexKey(idx) {
+function _indexKey(idx: Index): string {
   return `${idx.unique ? 'unique:' : ''}${idx.columns.slice().sort().join(',')}`;
 }
 
-function _fkKey(fk) {
+function _fkKey(fk: ForeignKey): string {
   return `${fk.columns.join(',')}->${fk.refTable}.${fk.refColumns.join(',')}`;
 }
 
-function _diffArrays(baseArr, curArr, keyFn) {
+function _diffArrays<T>(baseArr: T[], curArr: T[], keyFn: (x: T) => string): { added: T[]; removed: T[] } {
   const baseMap = new Map((baseArr || []).map((x) => [keyFn(x), x]));
   const curMap = new Map((curArr || []).map((x) => [keyFn(x), x]));
   const added = [...curMap.values()].filter((x) => !baseMap.has(keyFn(x)));
   const removed = [...baseMap.values()].filter((x) => !curMap.has(keyFn(x)));
   return { added, removed };
 }
-
-module.exports = { diffSchemas };

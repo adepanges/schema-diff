@@ -1,8 +1,7 @@
-'use strict';
+import { toDbml } from '../../src/schema/dbml';
+import type { Schema } from '../../src/types';
 
-const { toDbml } = require('../../src/schema/dbml');
-
-function makeSchema(tables) {
+function makeSchema(tables: Schema['tables']): Schema {
   return { tables };
 }
 

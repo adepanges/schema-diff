@@ -1,17 +1,16 @@
-'use strict';
-
-const { spawnSync } = require('child_process');
+import { spawnSync } from 'child_process';
 
 /**
  * Run a user-provided migration command.
  *
- * @param {string} command  Shell command string (e.g. "npx db-migrate up")
- * @param {string} cwd      Working directory (defaults to process.cwd())
- * @param {object} env      Extra environment variables (DB connection vars, etc.)
  * @returns {{ stdout: string, stderr: string }}
  * @throws {Error} if the command exits with a non-zero status
  */
-function runMigration(command, cwd = process.cwd(), env = {}) {
+export function runMigration(
+  command: string,
+  cwd = process.cwd(),
+  env: Record<string, string> = {}
+): { stdout: string; stderr: string } {
   const result = spawnSync('sh', ['-c', command], {
     cwd,
     env: { ...process.env, ...env },
@@ -34,5 +33,3 @@ function runMigration(command, cwd = process.cwd(), env = {}) {
 
   return { stdout: result.stdout || '', stderr: result.stderr || '' };
 }
-
-module.exports = { runMigration };

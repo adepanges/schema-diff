@@ -1,13 +1,11 @@
-'use strict';
+import * as core from '@actions/core';
+import * as github from '@actions/github';
+import path from 'path';
 
-const core = require('@actions/core');
-const github = require('@actions/github');
-const path = require('path');
+import { run } from './core';
+import { postPrComment } from './github/comment';
 
-const { run } = require('./core');
-const { postPrComment } = require('./github/comment');
-
-async function main() {
+async function main(): Promise<void> {
   try {
     const dbEngine = core.getInput('db-engine', { required: true });
     const dbVersion = core.getInput('db-version') || 'latest';
@@ -57,7 +55,7 @@ async function main() {
 
     // Post PR comment
     if (postComment && github.context.payload.pull_request) {
-      const token = core.getInput('github-token') || process.env.GITHUB_TOKEN;
+      const token = core.getInput('github-token') || process.env['GITHUB_TOKEN'];
       if (!token) {
         core.warning('[schema-diff] github-token not provided — skipping PR comment');
       } else {
@@ -71,7 +69,7 @@ async function main() {
       core.warning('[schema-diff] ⚠️ Destructive schema changes detected!');
     }
   } catch (err) {
-    core.setFailed(err.message);
+    core.setFailed((err as Error).message);
   }
 }
 

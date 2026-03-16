@@ -1,28 +1,35 @@
-'use strict';
+import { diffSchemas } from '../../src/diff/engine';
+import type { Schema, Table, Column } from '../../src/types';
 
-const { diffSchemas } = require('../../src/diff/engine');
-
-function makeSchema(tables) {
+function makeSchema(tables: Record<string, Table>): Schema {
   return { tables };
 }
 
-function makeTable(name, columns = {}, opts = {}) {
+function makeTable(
+  name: string,
+  columns: Record<string, Column> = {},
+  opts: { primaryKey?: string[]; indexes?: Table['indexes']; foreignKeys?: Table['foreignKeys'] } = {}
+): Table {
   return {
     name,
     columns,
-    primaryKey: opts.primaryKey || [],
-    indexes: opts.indexes || [],
-    foreignKeys: opts.foreignKeys || [],
+    primaryKey: opts.primaryKey ?? [],
+    indexes: opts.indexes ?? [],
+    foreignKeys: opts.foreignKeys ?? [],
   };
 }
 
-function makeCol(name, type = 'integer', opts = {}) {
+function makeCol(
+  name: string,
+  type = 'integer',
+  opts: { nullable?: boolean; default?: string | null; pk?: boolean } = {}
+): Column {
   return {
     name,
     type,
     nullable: opts.nullable !== undefined ? opts.nullable : true,
-    default: opts.default || null,
-    pk: opts.pk || false,
+    default: opts.default ?? null,
+    pk: opts.pk ?? false,
   };
 }
 
@@ -63,8 +70,8 @@ describe('diffSchemas — column-level changes', () => {
       users: makeTable('users', { id: makeCol('id'), email: makeCol('email', 'varchar(255)') }),
     });
     const diff = diffSchemas(baseline, current);
-    expect(diff.modifiedTables.users).toBeDefined();
-    expect(diff.modifiedTables.users.addedColumns).toContain('email');
+    expect(diff.modifiedTables['users']).toBeDefined();
+    expect(diff.modifiedTables['users']!.addedColumns).toContain('email');
   });
 
   test('detects removed column (destructive)', () => {
@@ -73,7 +80,7 @@ describe('diffSchemas — column-level changes', () => {
     });
     const current = makeSchema({ users: makeTable('users', { id: makeCol('id') }) });
     const diff = diffSchemas(baseline, current);
-    expect(diff.modifiedTables.users.removedColumns).toContain('email');
+    expect(diff.modifiedTables['users']!.removedColumns).toContain('email');
     expect(diff.hasDestructive).toBe(true);
   });
 
@@ -81,8 +88,8 @@ describe('diffSchemas — column-level changes', () => {
     const baseline = makeSchema({ users: makeTable('users', { age: makeCol('age', 'integer') }) });
     const current = makeSchema({ users: makeTable('users', { age: makeCol('age', 'varchar(10)') }) });
     const diff = diffSchemas(baseline, current);
-    expect(diff.modifiedTables.users.modifiedColumns.age).toBeDefined();
-    expect(diff.modifiedTables.users.modifiedColumns.age.type).toEqual({ from: 'integer', to: 'varchar(10)' });
+    expect(diff.modifiedTables['users']!.modifiedColumns['age']).toBeDefined();
+    expect(diff.modifiedTables['users']!.modifiedColumns['age']!.type).toEqual({ from: 'integer', to: 'varchar(10)' });
     expect(diff.hasDestructive).toBe(true);
   });
 
@@ -90,7 +97,7 @@ describe('diffSchemas — column-level changes', () => {
     const baseline = makeSchema({ users: makeTable('users', { name: makeCol('name', 'text', { nullable: true }) }) });
     const current = makeSchema({ users: makeTable('users', { name: makeCol('name', 'text', { nullable: false }) }) });
     const diff = diffSchemas(baseline, current);
-    expect(diff.modifiedTables.users.modifiedColumns.name).toBeDefined();
+    expect(diff.modifiedTables['users']!.modifiedColumns['name']).toBeDefined();
     expect(diff.hasDestructive).toBe(true);
   });
 
@@ -98,7 +105,7 @@ describe('diffSchemas — column-level changes', () => {
     const baseline = makeSchema({ users: makeTable('users', { name: makeCol('name', 'text', { nullable: false }) }) });
     const current = makeSchema({ users: makeTable('users', { name: makeCol('name', 'text', { nullable: true }) }) });
     const diff = diffSchemas(baseline, current);
-    expect(diff.modifiedTables.users.modifiedColumns.name).toBeDefined();
+    expect(diff.modifiedTables['users']!.modifiedColumns['name']).toBeDefined();
     expect(diff.hasDestructive).toBe(false);
   });
 });
@@ -114,8 +121,8 @@ describe('diffSchemas — index changes', () => {
       }),
     });
     const diff = diffSchemas(baseline, current);
-    expect(diff.modifiedTables.users.addedIndexes).toHaveLength(1);
-    expect(diff.modifiedTables.users.addedIndexes[0].name).toBe('idx_email');
+    expect(diff.modifiedTables['users']!.addedIndexes).toHaveLength(1);
+    expect(diff.modifiedTables['users']!.addedIndexes[0]!.name).toBe('idx_email');
   });
 
   test('detects removed index', () => {
@@ -128,25 +135,39 @@ describe('diffSchemas — index changes', () => {
       users: makeTable('users', { id: makeCol('id') }, { indexes: [] }),
     });
     const diff = diffSchemas(baseline, current);
-    expect(diff.modifiedTables.users.removedIndexes).toHaveLength(1);
+    expect(diff.modifiedTables['users']!.removedIndexes).toHaveLength(1);
   });
 });
 
 describe('diffSchemas — foreign key changes', () => {
   test('detects added foreign key', () => {
-    const fk = { name: 'fk_user', columns: ['user_id'], refTable: 'users', refColumns: ['id'], onDelete: null, onUpdate: null };
+    const fk: Table['foreignKeys'][number] = {
+      name: 'fk_user',
+      columns: ['user_id'],
+      refTable: 'users',
+      refColumns: ['id'],
+      onDelete: null,
+      onUpdate: null,
+    };
     const baseline = makeSchema({ posts: makeTable('posts', { id: makeCol('id') }, { foreignKeys: [] }) });
     const current = makeSchema({ posts: makeTable('posts', { id: makeCol('id') }, { foreignKeys: [fk] }) });
     const diff = diffSchemas(baseline, current);
-    expect(diff.modifiedTables.posts.addedForeignKeys).toHaveLength(1);
+    expect(diff.modifiedTables['posts']!.addedForeignKeys).toHaveLength(1);
   });
 
   test('detects removed foreign key', () => {
-    const fk = { name: 'fk_user', columns: ['user_id'], refTable: 'users', refColumns: ['id'], onDelete: null, onUpdate: null };
+    const fk: Table['foreignKeys'][number] = {
+      name: 'fk_user',
+      columns: ['user_id'],
+      refTable: 'users',
+      refColumns: ['id'],
+      onDelete: null,
+      onUpdate: null,
+    };
     const baseline = makeSchema({ posts: makeTable('posts', { id: makeCol('id') }, { foreignKeys: [fk] }) });
     const current = makeSchema({ posts: makeTable('posts', { id: makeCol('id') }, { foreignKeys: [] }) });
     const diff = diffSchemas(baseline, current);
-    expect(diff.modifiedTables.posts.removedForeignKeys).toHaveLength(1);
+    expect(diff.modifiedTables['posts']!.removedForeignKeys).toHaveLength(1);
   });
 });
 

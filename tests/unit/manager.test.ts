@@ -1,10 +1,8 @@
-'use strict';
-
-const fs = require('fs');
-const { DbManager } = require('../../src/db/manager');
+import fs from 'fs';
+import { DbManager } from '../../src/db/manager';
 
 describe('DbManager — SQLite (dockerless)', () => {
-  let db;
+  let db: DbManager | null;
 
   afterEach(async () => {
     if (db) {
@@ -22,15 +20,15 @@ describe('DbManager — SQLite (dockerless)', () => {
     db = new DbManager('sqlite');
     await db.start();
     expect(db.dbFile).toBeTruthy();
-    expect(fs.existsSync(db._tmpDir)).toBe(true);
+    expect(fs.existsSync(db._tmpDir!)).toBe(true);
   });
 
   test('getConnectionEnv() returns SQLITE_FILE and DATABASE_URL', async () => {
     db = new DbManager('sqlite');
     await db.start();
     const env = db.getConnectionEnv();
-    expect(env.SQLITE_FILE).toBe(db.dbFile);
-    expect(env.DATABASE_URL).toMatch(/^sqlite:\/\/\//);
+    expect(env['SQLITE_FILE']).toBe(db.dbFile);
+    expect(env['DATABASE_URL']).toMatch(/^sqlite:\/\/\//);
   });
 
   test('getConnectionUrl() returns sqlite:/// URL', async () => {
@@ -42,7 +40,7 @@ describe('DbManager — SQLite (dockerless)', () => {
   test('getConfig() returns engine and dbFile', async () => {
     db = new DbManager('sqlite');
     await db.start();
-    const cfg = db.getConfig();
+    const cfg = db.getConfig() as { engine: string; dbFile: string };
     expect(cfg.engine).toBe('sqlite');
     expect(cfg.dbFile).toBe(db.dbFile);
   });
@@ -50,7 +48,7 @@ describe('DbManager — SQLite (dockerless)', () => {
   test('stop() removes the temp directory', async () => {
     db = new DbManager('sqlite');
     await db.start();
-    const tmpDir = db._tmpDir;
+    const tmpDir = db._tmpDir!;
     expect(fs.existsSync(tmpDir)).toBe(true);
     await db.stop();
     expect(fs.existsSync(tmpDir)).toBe(false);
