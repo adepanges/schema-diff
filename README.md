@@ -229,11 +229,22 @@ These are automatically uploaded as GitHub Actions artifacts and can also be com
 - ✅ MySQL / SQLite support  
 - ✅ DBML-based diffing
 - ✅ Automatic PR comments
+- ✅ Rich diff reports with severity classification (info / warning / danger)
+- ✅ Collapsible per-table sections and adaptive PR comment sizing
 - 🔜 DBML visualization (schema diagram in PR comment)
 - 🔜 MongoDB support
 - 🔜 Slack / Teams notifications
 - 🔜 Schema registry / history dashboard
 - 🔜 Custom diff rules (e.g., allow column additions, block column drops)
+
+### Planned DDL Object Support
+
+- [x] Tables, columns, indexes, foreign keys, constraints
+- [x] Functions & stored procedures
+- [ ] Views
+- [ ] Triggers
+- [ ] Enums & custom types
+- [ ] Sequences
 
 ---
 
