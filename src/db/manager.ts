@@ -1,12 +1,22 @@
-'use strict';
+import net from 'net';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { spawnSync } from 'child_process';
+import crypto from 'crypto';
 
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { spawnSync } = require('child_process');
-const crypto = require('crypto');
+interface DbEngineConfig {
+  image?: string;
+  port?: number;
+  dbName?: string;
+  user?: string;
+  password?: string;
+  readyCmd?: string[];
+  env: (cfg: DbEngineConfig) => Record<string, string>;
+  dockerless?: boolean;
+}
 
-const DB_DEFAULTS = {
+const DB_DEFAULTS: Record<string, DbEngineConfig | undefined> = {
   postgres: {
     image: 'postgres',
     port: 5432,
@@ -15,9 +25,9 @@ const DB_DEFAULTS = {
     password: 'schema_diff',
     readyCmd: ['pg_isready', '-U', 'schema_diff'],
     env: (cfg) => ({
-      POSTGRES_DB: cfg.dbName,
-      POSTGRES_USER: cfg.user,
-      POSTGRES_PASSWORD: cfg.password,
+      POSTGRES_DB: cfg.dbName!,
+      POSTGRES_USER: cfg.user!,
+      POSTGRES_PASSWORD: cfg.password!,
     }),
   },
   mysql: {
@@ -28,10 +38,10 @@ const DB_DEFAULTS = {
     password: 'schema_diff',
     readyCmd: ['mysqladmin', 'ping', '-h', '127.0.0.1', '-u', 'schema_diff', '--password=schema_diff'],
     env: (cfg) => ({
-      MYSQL_DATABASE: cfg.dbName,
-      MYSQL_USER: cfg.user,
-      MYSQL_PASSWORD: cfg.password,
-      MYSQL_ROOT_PASSWORD: cfg.password,
+      MYSQL_DATABASE: cfg.dbName!,
+      MYSQL_USER: cfg.user!,
+      MYSQL_PASSWORD: cfg.password!,
+      MYSQL_ROOT_PASSWORD: cfg.password!,
     }),
   },
   sqlite: {
@@ -40,19 +50,27 @@ const DB_DEFAULTS = {
   },
 };
 
-class DbManager {
-  constructor(engine, version = 'latest') {
-    if (!DB_DEFAULTS[engine]) {
+export class DbManager {
+  engine: string;
+  version: string;
+  cfg: DbEngineConfig;
+  containerId: string | null = null;
+  containerName?: string;
+  hostPort: number | null = null;
+  dbFile: string | null = null;
+  _tmpDir: string | null = null;
+
+  constructor(engine: string, version = 'latest') {
+    const dbDefault = DB_DEFAULTS[engine];
+    if (!dbDefault) {
       throw new Error(`Unsupported database engine: ${engine}. Supported: ${Object.keys(DB_DEFAULTS).join(', ')}`);
     }
     this.engine = engine;
     this.version = version;
-    this.cfg = { ...DB_DEFAULTS[engine] };
-    this.containerId = null;
-    this.hostPort = null;
+    this.cfg = { ...dbDefault };
   }
 
-  async start() {
+  async start(): Promise<this> {
     if (this.cfg.dockerless) {
       // SQLite: no Docker container — create a temp directory and DB file path
       this._tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'schema-diff-sqlite-'));
@@ -84,7 +102,7 @@ class DbManager {
     return this;
   }
 
-  async stop() {
+  async stop(): Promise<void> {
     if (this.cfg.dockerless) {
       if (this._tmpDir) {
         fs.rmSync(this._tmpDir, { recursive: true, force: true });
@@ -99,14 +117,14 @@ class DbManager {
     }
   }
 
-  getConnectionEnv() {
+  getConnectionEnv(): Record<string, string> {
     if (this.engine === 'postgres') {
       return {
         PGHOST: '127.0.0.1',
         PGPORT: String(this.hostPort),
-        PGDATABASE: this.cfg.dbName,
-        PGUSER: this.cfg.user,
-        PGPASSWORD: this.cfg.password,
+        PGDATABASE: this.cfg.dbName!,
+        PGUSER: this.cfg.user!,
+        PGPASSWORD: this.cfg.password!,
         DATABASE_URL: this.getConnectionUrl(),
       };
     }
@@ -114,22 +132,22 @@ class DbManager {
       return {
         MYSQL_HOST: '127.0.0.1',
         MYSQL_PORT: String(this.hostPort),
-        MYSQL_DATABASE: this.cfg.dbName,
-        MYSQL_USER: this.cfg.user,
-        MYSQL_PASSWORD: this.cfg.password,
+        MYSQL_DATABASE: this.cfg.dbName!,
+        MYSQL_USER: this.cfg.user!,
+        MYSQL_PASSWORD: this.cfg.password!,
         DATABASE_URL: this.getConnectionUrl(),
       };
     }
     if (this.engine === 'sqlite') {
       return {
-        SQLITE_FILE: this.dbFile,
+        SQLITE_FILE: this.dbFile!,
         DATABASE_URL: this.getConnectionUrl(),
       };
     }
     return {};
   }
 
-  getConnectionUrl() {
+  getConnectionUrl(): string {
     const { dbName, user, password } = this.cfg;
     if (this.engine === 'postgres') {
       return `postgresql://${user}:${password}@127.0.0.1:${this.hostPort}/${dbName}`;
@@ -143,7 +161,7 @@ class DbManager {
     return '';
   }
 
-  getConfig() {
+  getConfig(): Record<string, unknown> {
     if (this.engine === 'sqlite') {
       return {
         engine: this.engine,
@@ -160,10 +178,10 @@ class DbManager {
     };
   }
 
-  async _waitForReady(maxAttempts = 30, intervalMs = 2000) {
+  async _waitForReady(maxAttempts = 30, intervalMs = 2000): Promise<void> {
     if (!this.cfg.readyCmd) return; // SQLite: no container to wait for
     for (let i = 0; i < maxAttempts; i++) {
-      const result = spawnSync('docker', ['exec', this.containerId, ...this.cfg.readyCmd], {
+      const result = spawnSync('docker', ['exec', this.containerId!, ...this.cfg.readyCmd], {
         encoding: 'utf8',
         timeout: 5000,
       });
@@ -173,21 +191,18 @@ class DbManager {
     throw new Error(`Database container did not become ready after ${maxAttempts} attempts`);
   }
 
-  async _getFreePort() {
+  _getFreePort(): Promise<number> {
     return new Promise((resolve, reject) => {
-      const net = require('net');
       const srv = net.createServer();
       srv.listen(0, '127.0.0.1', () => {
-        const port = srv.address().port;
+        const port = (srv.address() as net.AddressInfo).port;
         srv.close(() => resolve(port));
       });
       srv.on('error', reject);
     });
   }
 
-  _sleep(ms) {
+  _sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
-
-module.exports = { DbManager };

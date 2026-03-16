@@ -1,15 +1,14 @@
-'use strict';
+import { GitHub } from '@actions/github/lib/utils';
+import type { Context } from '@actions/github/lib/context';
+
+type Octokit = InstanceType<typeof GitHub>;
 
 /**
  * Post or update a schema diff comment on a GitHub PR.
- *
- * @param {object} octokit   Authenticated Octokit instance (@actions/github)
- * @param {object} context   GitHub Actions context
- * @param {string} body      Comment body (markdown)
  */
-async function postPrComment(octokit, context, body) {
+export async function postPrComment(octokit: Octokit, context: Context, body: string): Promise<void> {
   const { owner, repo } = context.repo;
-  const pullNumber = context.payload.pull_request && context.payload.pull_request.number;
+  const pullNumber = context.payload.pull_request && (context.payload.pull_request as { number: number }).number;
 
   if (!pullNumber) {
     throw new Error('Cannot post PR comment: not running in a pull_request event context');
@@ -26,7 +25,7 @@ async function postPrComment(octokit, context, body) {
     per_page: 100,
   });
 
-  const existing = comments.find((c) => c.body && c.body.startsWith(MARKER));
+  const existing = comments.find((c: { body?: string | null; id: number }) => c.body && c.body.startsWith(MARKER));
 
   if (existing) {
     await octokit.rest.issues.updateComment({
@@ -44,5 +43,3 @@ async function postPrComment(octokit, context, body) {
     });
   }
 }
-
-module.exports = { postPrComment };

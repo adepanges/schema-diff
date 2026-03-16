@@ -1,6 +1,4 @@
-'use strict';
-
-const { parseSchema } = require('../../src/schema/parser');
+import { parseSchema } from '../../src/schema/parser';
 
 describe('parseSchema — PostgreSQL pg_dump output', () => {
   const pgDump = `
@@ -27,74 +25,74 @@ describe('parseSchema — PostgreSQL pg_dump output', () => {
     CREATE INDEX idx_posts_user_id ON posts USING btree (user_id);
   `;
 
-  let schema;
+  let schema: ReturnType<typeof parseSchema>;
   beforeAll(() => {
     schema = parseSchema(pgDump);
   });
 
   test('parses two tables', () => {
     expect(Object.keys(schema.tables)).toHaveLength(2);
-    expect(schema.tables.users).toBeDefined();
-    expect(schema.tables.posts).toBeDefined();
+    expect(schema.tables['users']).toBeDefined();
+    expect(schema.tables['posts']).toBeDefined();
   });
 
   test('parses columns in users', () => {
-    const cols = schema.tables.users.columns;
-    expect(cols.id).toBeDefined();
-    expect(cols.email).toBeDefined();
-    expect(cols.name).toBeDefined();
-    expect(cols.created_at).toBeDefined();
+    const cols = schema.tables['users']!.columns;
+    expect(cols['id']).toBeDefined();
+    expect(cols['email']).toBeDefined();
+    expect(cols['name']).toBeDefined();
+    expect(cols['created_at']).toBeDefined();
   });
 
   test('id column is not nullable', () => {
-    expect(schema.tables.users.columns.id.nullable).toBe(false);
+    expect(schema.tables['users']!.columns['id']!.nullable).toBe(false);
   });
 
   test('name column is nullable', () => {
-    expect(schema.tables.users.columns.name.nullable).toBe(true);
+    expect(schema.tables['users']!.columns['name']!.nullable).toBe(true);
   });
 
   test('email column is not nullable', () => {
-    expect(schema.tables.users.columns.email.nullable).toBe(false);
+    expect(schema.tables['users']!.columns['email']!.nullable).toBe(false);
   });
 
   test('created_at has default', () => {
-    expect(schema.tables.users.columns.created_at.default).toBeTruthy();
+    expect(schema.tables['users']!.columns['created_at']!.default).toBeTruthy();
   });
 
   test('published has default false', () => {
-    expect(schema.tables.posts.columns.published.default).toBe('false');
+    expect(schema.tables['posts']!.columns['published']!.default).toBe('false');
   });
 
   test('parses primary key from CONSTRAINT', () => {
-    expect(schema.tables.users.primaryKey).toContain('id');
+    expect(schema.tables['users']!.primaryKey).toContain('id');
   });
 
   test('parses primary key from ALTER TABLE', () => {
-    expect(schema.tables.posts.primaryKey).toContain('id');
+    expect(schema.tables['posts']!.primaryKey).toContain('id');
   });
 
   test('parses foreign key from ALTER TABLE', () => {
-    const fks = schema.tables.posts.foreignKeys;
+    const fks = schema.tables['posts']!.foreignKeys;
     expect(fks).toHaveLength(1);
-    expect(fks[0].refTable).toBe('users');
-    expect(fks[0].columns).toContain('user_id');
-    expect(fks[0].refColumns).toContain('id');
-    expect(fks[0].onDelete).toBe('CASCADE');
+    expect(fks[0]!.refTable).toBe('users');
+    expect(fks[0]!.columns).toContain('user_id');
+    expect(fks[0]!.refColumns).toContain('id');
+    expect(fks[0]!.onDelete).toBe('CASCADE');
   });
 
   test('parses unique index', () => {
-    const idxs = schema.tables.users.indexes;
+    const idxs = schema.tables['users']!.indexes;
     const uniqueIdx = idxs.find((i) => i.name === 'idx_users_email');
     expect(uniqueIdx).toBeDefined();
-    expect(uniqueIdx.unique).toBe(true);
+    expect(uniqueIdx!.unique).toBe(true);
   });
 
   test('parses non-unique index', () => {
-    const idxs = schema.tables.posts.indexes;
+    const idxs = schema.tables['posts']!.indexes;
     const idx = idxs.find((i) => i.name === 'idx_posts_user_id');
     expect(idx).toBeDefined();
-    expect(idx.unique).toBe(false);
+    expect(idx!.unique).toBe(false);
   });
 });
 
@@ -113,57 +111,57 @@ describe('parseSchema — MySQL mysqldump output', () => {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `;
 
-  let schema;
+  let schema: ReturnType<typeof parseSchema>;
   beforeAll(() => {
     schema = parseSchema(mysqlDump);
   });
 
   test('parses the orders table', () => {
-    expect(schema.tables.orders).toBeDefined();
+    expect(schema.tables['orders']).toBeDefined();
   });
 
   test('parses all columns', () => {
-    const cols = schema.tables.orders.columns;
-    expect(cols.id).toBeDefined();
-    expect(cols.customer_id).toBeDefined();
-    expect(cols.total).toBeDefined();
-    expect(cols.status).toBeDefined();
-    expect(cols.created_at).toBeDefined();
+    const cols = schema.tables['orders']!.columns;
+    expect(cols['id']).toBeDefined();
+    expect(cols['customer_id']).toBeDefined();
+    expect(cols['total']).toBeDefined();
+    expect(cols['status']).toBeDefined();
+    expect(cols['created_at']).toBeDefined();
   });
 
   test('id column is not nullable', () => {
-    expect(schema.tables.orders.columns.id.nullable).toBe(false);
+    expect(schema.tables['orders']!.columns['id']!.nullable).toBe(false);
   });
 
   test('status has default pending', () => {
-    expect(schema.tables.orders.columns.status.default).toBe('pending');
+    expect(schema.tables['orders']!.columns['status']!.default).toBe('pending');
   });
 
   test('parses primary key', () => {
-    expect(schema.tables.orders.primaryKey).toContain('id');
+    expect(schema.tables['orders']!.primaryKey).toContain('id');
   });
 
   test('parses plain KEY index', () => {
-    const idxs = schema.tables.orders.indexes;
+    const idxs = schema.tables['orders']!.indexes;
     const idx = idxs.find((i) => i.name === 'idx_orders_customer');
     expect(idx).toBeDefined();
-    expect(idx.unique).toBe(false);
+    expect(idx!.unique).toBe(false);
   });
 
   test('parses UNIQUE KEY', () => {
-    const idxs = schema.tables.orders.indexes;
+    const idxs = schema.tables['orders']!.indexes;
     const idx = idxs.find((i) => i.name === 'idx_orders_unique_status');
     expect(idx).toBeDefined();
-    expect(idx.unique).toBe(true);
+    expect(idx!.unique).toBe(true);
   });
 
   test('parses CONSTRAINT foreign key', () => {
-    const fks = schema.tables.orders.foreignKeys;
+    const fks = schema.tables['orders']!.foreignKeys;
     expect(fks).toHaveLength(1);
-    expect(fks[0].name).toBe('fk_orders_customer');
-    expect(fks[0].refTable).toBe('customers');
-    expect(fks[0].onDelete).toBe('RESTRICT');
-    expect(fks[0].onUpdate).toBe('CASCADE');
+    expect(fks[0]!.name).toBe('fk_orders_customer');
+    expect(fks[0]!.refTable).toBe('customers');
+    expect(fks[0]!.onDelete).toBe('RESTRICT');
+    expect(fks[0]!.onUpdate).toBe('CASCADE');
   });
 });
 
@@ -195,54 +193,54 @@ describe('parseSchema — SQLite .schema output', () => {
     CREATE INDEX idx_posts_user_id ON posts (user_id);
   `;
 
-  let schema;
+  let schema: ReturnType<typeof parseSchema>;
   beforeAll(() => {
     schema = parseSchema(sqliteDump);
   });
 
   test('parses two tables', () => {
     expect(Object.keys(schema.tables)).toHaveLength(2);
-    expect(schema.tables.users).toBeDefined();
-    expect(schema.tables.posts).toBeDefined();
+    expect(schema.tables['users']).toBeDefined();
+    expect(schema.tables['posts']).toBeDefined();
   });
 
   test('parses columns in users', () => {
-    const cols = schema.tables.users.columns;
-    expect(cols.id).toBeDefined();
-    expect(cols.email).toBeDefined();
-    expect(cols.name).toBeDefined();
-    expect(cols.created_at).toBeDefined();
+    const cols = schema.tables['users']!.columns;
+    expect(cols['id']).toBeDefined();
+    expect(cols['email']).toBeDefined();
+    expect(cols['name']).toBeDefined();
+    expect(cols['created_at']).toBeDefined();
   });
 
   test('id column is not nullable (INTEGER PRIMARY KEY)', () => {
-    expect(schema.tables.users.columns.id.pk).toBe(true);
+    expect(schema.tables['users']!.columns['id']!.pk).toBe(true);
   });
 
   test('email column is not nullable', () => {
-    expect(schema.tables.users.columns.email.nullable).toBe(false);
+    expect(schema.tables['users']!.columns['email']!.nullable).toBe(false);
   });
 
   test('name column is nullable', () => {
-    expect(schema.tables.users.columns.name.nullable).toBe(true);
+    expect(schema.tables['users']!.columns['name']!.nullable).toBe(true);
   });
 
   test('parses FOREIGN KEY in CREATE TABLE body', () => {
-    const fks = schema.tables.posts.foreignKeys;
+    const fks = schema.tables['posts']!.foreignKeys;
     expect(fks).toHaveLength(1);
-    expect(fks[0].refTable).toBe('users');
-    expect(fks[0].columns).toContain('user_id');
-    expect(fks[0].onDelete).toBe('CASCADE');
+    expect(fks[0]!.refTable).toBe('users');
+    expect(fks[0]!.columns).toContain('user_id');
+    expect(fks[0]!.onDelete).toBe('CASCADE');
   });
 
   test('parses unique index', () => {
-    const idx = schema.tables.users.indexes.find((i) => i.name === 'idx_users_email');
+    const idx = schema.tables['users']!.indexes.find((i) => i.name === 'idx_users_email');
     expect(idx).toBeDefined();
-    expect(idx.unique).toBe(true);
+    expect(idx!.unique).toBe(true);
   });
 
   test('parses non-unique index', () => {
-    const idx = schema.tables.posts.indexes.find((i) => i.name === 'idx_posts_user_id');
+    const idx = schema.tables['posts']!.indexes.find((i) => i.name === 'idx_posts_user_id');
     expect(idx).toBeDefined();
-    expect(idx.unique).toBe(false);
+    expect(idx!.unique).toBe(false);
   });
 });
