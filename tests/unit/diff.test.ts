@@ -2,7 +2,7 @@ import { diffSchemas } from '../../src/diff/engine';
 import type { Schema, Table, Column } from '../../src/types';
 
 function makeSchema(tables: Record<string, Table>): Schema {
-  return { tables };
+  return { tables, functions: {} };
 }
 
 function makeTable(

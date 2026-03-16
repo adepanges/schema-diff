@@ -2,11 +2,11 @@ import { generateReport } from '../../src/report/generator';
 import type { DiffResult, Schema, Table, Column } from '../../src/types';
 
 function emptySchema(): Schema {
-  return { tables: {} };
+  return { tables: {}, functions: {} };
 }
 
 function makeSchema(tables: Record<string, Table>): Schema {
-  return { tables };
+  return { tables, functions: {} };
 }
 
 function makeTable(name: string, columns: Record<string, Column> = {}): Table {
@@ -19,22 +19,23 @@ function makeCol(name: string, type = 'integer', nullable = true, def: string | 
 
 describe('generateReport — no changes', () => {
   test('markdown report shows no changes message', () => {
-    const diff: DiffResult = { addedTables: [], removedTables: [], modifiedTables: {}, hasDestructive: false };
+    const diff: DiffResult = { addedTables: [], removedTables: [], modifiedTables: {}, addedFunctions: [], removedFunctions: [], modifiedFunctions: {}, hasDestructive: false };
     const report = generateReport(diff, { baseline: emptySchema(), current: emptySchema() }, 'markdown');
     expect(report).toContain('No Schema Changes Detected');
   });
 
   test('text report shows no changes message', () => {
-    const diff: DiffResult = { addedTables: [], removedTables: [], modifiedTables: {}, hasDestructive: false };
+    const diff: DiffResult = { addedTables: [], removedTables: [], modifiedTables: {}, addedFunctions: [], removedFunctions: [], modifiedFunctions: {}, hasDestructive: false };
     const report = generateReport(diff, { baseline: emptySchema(), current: emptySchema() }, 'text');
     expect(report).toContain('No schema changes detected');
   });
 
   test('json report is valid JSON', () => {
-    const diff: DiffResult = { addedTables: [], removedTables: [], modifiedTables: {}, hasDestructive: false };
+    const diff: DiffResult = { addedTables: [], removedTables: [], modifiedTables: {}, addedFunctions: [], removedFunctions: [], modifiedFunctions: {}, hasDestructive: false };
     const report = generateReport(diff, { baseline: emptySchema(), current: emptySchema() }, 'json');
-    const parsed = JSON.parse(report) as DiffResult;
-    expect(parsed.addedTables).toEqual([]);
+    const parsed = JSON.parse(report) as { classified: unknown; diff: DiffResult };
+    expect(parsed.diff.addedTables).toEqual([]);
+    expect(parsed.classified).toBeDefined();
   });
 });
 
@@ -45,6 +46,7 @@ describe('generateReport — added tables', () => {
       addedTables: ['users'],
       removedTables: [],
       modifiedTables: {},
+      addedFunctions: [], removedFunctions: [], modifiedFunctions: {},
       hasDestructive: false,
     };
     const report = generateReport(diff, { baseline: emptySchema(), current }, 'markdown');
@@ -58,11 +60,13 @@ describe('generateReport — added tables', () => {
       addedTables: ['users'],
       removedTables: [],
       modifiedTables: {},
+      addedFunctions: [], removedFunctions: [], modifiedFunctions: {},
       hasDestructive: false,
     };
     const report = generateReport(diff, { baseline: emptySchema(), current }, 'text');
-    expect(report).toContain('ADDED TABLES');
+    expect(report).toContain('TABLES');
     expect(report).toContain('users');
+    expect(report).toContain('[INFO]');
   });
 });
 
@@ -73,6 +77,7 @@ describe('generateReport — removed tables', () => {
       addedTables: [],
       removedTables: ['users'],
       modifiedTables: {},
+      addedFunctions: [], removedFunctions: [], modifiedFunctions: {},
       hasDestructive: true,
     };
     const report = generateReport(diff, { baseline, current: emptySchema() }, 'markdown');
@@ -104,6 +109,9 @@ describe('generateReport — modified tables', () => {
           removedForeignKeys: [],
         },
       },
+      addedFunctions: [],
+      removedFunctions: [],
+      modifiedFunctions: {},
       hasDestructive: true,
     };
     const report = generateReport(diff, { baseline, current }, 'markdown');
@@ -111,7 +119,7 @@ describe('generateReport — modified tables', () => {
     expect(report).toContain('users');
     expect(report).toContain('+   phone');
     expect(report).toContain('-   email');
-    expect(report).toContain('Destructive change');
+    expect(report).toContain('Destructive');
   });
 });
 
@@ -122,10 +130,11 @@ describe('generateReport — summary counts', () => {
       addedTables: ['orders'],
       removedTables: [],
       modifiedTables: {},
+      addedFunctions: [], removedFunctions: [], modifiedFunctions: {},
       hasDestructive: false,
     };
     const report = generateReport(diff, { baseline: emptySchema(), current }, 'markdown');
-    expect(report).toContain('1 table');
-    expect(report).toContain('0 tables');
+    expect(report).toContain('Info');
+    expect(report).toContain('Added Tables');
   });
 });
