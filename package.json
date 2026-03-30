@@ -28,7 +28,7 @@
   "dependencies": {
     "@actions/core": "^3.0.0",
     "@actions/github": "^9.0.0",
-    "@dbml/core": "^6.4.0",
+    "@dbml/core": "^6.5.0",
     "commander": "^14.0.3"
   },
   "devDependencies": {

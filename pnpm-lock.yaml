@@ -15,8 +15,8 @@ importers:
         specifier: ^9.0.0
         version: 9.0.0
       '@dbml/core':
-        specifier: ^6.4.0
-        version: 6.4.0
+        specifier: ^6.5.0
+        version: 6.5.0
       commander:
         specifier: ^14.0.3
         version: 14.0.3
@@ -222,12 +222,12 @@ packages:
   '@bcoe/v8-coverage@0.2.3':
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
 
-  '@dbml/core@6.4.0':
-    resolution: {integrity: sha512-mmWOQZSo2yaYNsJ9EZo0ZmcjL/Eg2fNJ+DCaL9VUo3bXO4775BxFS5d3pZmgPC3FMFNClHGJi7Qal7YjzW3Bzw==}
+  '@dbml/core@6.5.0':
+    resolution: {integrity: sha512-yMwggDDEbPNtJlM7vu/p3ltLSREbar6q9m6IwzjTDXW6Fq4LSPZJeDOQ2kGpl5fEBb8E5paQHgd8A2ltx9AE2w==}
     engines: {node: '>=16'}
 
-  '@dbml/parse@6.4.0':
-    resolution: {integrity: sha512-OmIZahT0G3vAi912wHcG0IXe/VhaOU0FpNDP4/xBVqwnfD8Mb7WYrSxSfa33HG+kXoO/jSSemHtjQ4SAlFCORg==}
+  '@dbml/parse@6.5.0':
+    resolution: {integrity: sha512-0/O/BfGiyiHCU8BA0/k+YDzzZKxpQxmndQnW/m16gYt5E8K7MvBSgNRHfTszd/Emq/3qFTXKp+cINtnJVAcZzA==}
     engines: {node: '>=18'}
 
   '@emnapi/core@1.9.0':
@@ -1738,9 +1738,9 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
-  '@dbml/core@6.4.0':
+  '@dbml/core@6.5.0':
     dependencies:
-      '@dbml/parse': 6.4.0
+      '@dbml/parse': 6.5.0
       antlr4: 4.13.2
       lodash: 4.17.23
       lodash-es: 4.17.23
@@ -1748,7 +1748,7 @@ snapshots:
       parsimmon: 1.18.1
       pluralize: 8.0.0
 
-  '@dbml/parse@6.4.0':
+  '@dbml/parse@6.5.0':
     dependencies:
       lodash-es: 4.17.23
       luxon: 3.7.2
