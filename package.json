@@ -26,9 +26,9 @@
   },
   "packageManager": "pnpm@10.30.3",
   "dependencies": {
-    "@actions/core": "^3.0.0",
-    "@actions/github": "^9.0.0",
-    "@dbml/core": "^6.4.0",
+    "@actions/core": "^3.0.1",
+    "@actions/github": "^9.1.1",
+    "@dbml/core": "^7.1.1",
     "commander": "^14.0.3"
   },
   "devDependencies": {
